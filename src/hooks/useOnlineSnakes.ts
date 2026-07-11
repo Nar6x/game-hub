@@ -321,7 +321,7 @@ export function useOnlineSnakes() {
                 const isMyTurn = myIndex !== null && roomState.currentPlayerIndex === myIndex;
                 return {
                   ...prev,
-                  players: roomState.players.length > 0 ? roomState.players : room.players_info,
+                  players: roomState.players?.length > 0 ? roomState.players : room.players_info,
                   currentPlayerIndex: roomState.currentPlayerIndex,
                   diceValue: roomState.diceValue,
                   gameStatus: isMyTurn ? "rolling" : "moving",
@@ -331,10 +331,14 @@ export function useOnlineSnakes() {
                 };
               }
 
+              if (roomState.gameStatus === "rolling_dice") {
+                return prev;
+              }
+
               const isMyTurn = myIndex !== null && roomState.currentPlayerIndex === myIndex;
               return {
                 ...prev,
-                players: roomState.players.length > 0 ? roomState.players : room.players_info,
+                players: roomState.players?.length > 0 ? roomState.players : prev.players,
                 currentPlayerIndex: roomState.currentPlayerIndex,
                 diceValue: roomState.diceValue,
                 gameStatus: roomState.gameStatus === "won" ? "won" : isMyTurn ? "rolling" : "moving",
@@ -489,7 +493,6 @@ export function useOnlineSnakes() {
       .from("rooms")
       .update({
         state: {
-          players: state.players,
           currentPlayerIndex: myIndex,
           diceValue,
           gameStatus: "rolling_dice",
