@@ -21,8 +21,8 @@ const LADDERS: Record<number, number> = {
 const PLAYER_COLORS = ["#22d3ee", "#f43f5e", "#a78bfa", "#34d399"];
 const STALE_MINUTES = 5;
 const STEP_DELAY = 100;
-const DICE_ANIM_MS = 1000;
-const SHOW_RESULT_MS = 1500;
+const DICE_ANIM_MS = 500;
+const SHOW_RESULT_MS = 1000;
 
 interface SnakesRoomState {
   players: SnakesPlayer[];
@@ -347,13 +347,8 @@ export function useOnlineSnakes() {
     // Wait for dice to land
     await new Promise((r) => setTimeout(r, DICE_ANIM_MS));
 
-    setState((prev) => ({ ...prev, message: `Rolled a ${diceValue}!` }));
-
-    // Brief pause to show result before movement
-    await new Promise((r) => setTimeout(r, 500));
-
-    // Animate movement locally (no Supabase updates per step)
-    setState((prev) => ({ ...prev, gameStatus: "moving" }));
+    // Animate movement immediately after dice lands
+    setState((prev) => ({ ...prev, message: `Rolled a ${diceValue}!`, gameStatus: "moving" }));
 
     for (let i = 0; i < steps.length; i++) {
       await new Promise((r) => setTimeout(r, STEP_DELAY));
@@ -363,7 +358,7 @@ export function useOnlineSnakes() {
       setState((prev) => ({ ...prev, players: updatedPlayers }));
     }
 
-    // Show final position
+    // Show final position briefly
     await new Promise((r) => setTimeout(r, SHOW_RESULT_MS));
 
     // Calculate final state and send ONE update to Supabase
