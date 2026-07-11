@@ -35,16 +35,11 @@ export function Dice({ value, rolling }: { value: number | null; rolling: boolea
   const [displayValue, setDisplayValue] = useState(1);
   const [phase, setPhase] = useState<"idle" | "shaking" | "revealing" | "landed">("idle");
   const wasRolling = useRef(false);
-  const shakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const landedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    const timers = [shakeTimer, landedTimer, revealTimer];
     return () => {
-      timers.forEach((t) => {
-        if (t.current) clearTimeout(t.current);
-      });
+      timers.current.forEach((t) => clearTimeout(t));
     };
   }, []);
 
@@ -64,13 +59,17 @@ export function Dice({ value, rolling }: { value: number | null; rolling: boolea
           setDisplayValue(finalValue);
           setPhase("revealing");
 
-          revealTimer.current = setTimeout(() => {
-            setPhase("landed");
-            landedTimer.current = setTimeout(() => {
-              setPhase("idle");
-              wasRolling.current = false;
-            }, 350);
-          }, 350);
+          timers.current.push(
+            setTimeout(() => {
+              setPhase("landed");
+              timers.current.push(
+                setTimeout(() => {
+                  setPhase("idle");
+                  wasRolling.current = false;
+                }, 350)
+              );
+            }, 350)
+          );
         }
       }, 70);
 
@@ -78,27 +77,24 @@ export function Dice({ value, rolling }: { value: number | null; rolling: boolea
     }
 
     if (!rolling && wasRolling.current) {
-      if (shakeTimer.current) clearTimeout(shakeTimer.current);
-      if (revealTimer.current) clearTimeout(revealTimer.current);
+      timers.current.forEach((t) => clearTimeout(t));
+      timers.current = [];
 
       const finalValue = value !== null ? value : displayValue;
       setDisplayValue(finalValue);
       setPhase("landed");
 
-      landedTimer.current = setTimeout(() => {
-        setPhase("idle");
-        wasRolling.current = false;
-      }, 350);
+      timers.current.push(
+        setTimeout(() => {
+          setPhase("idle");
+          wasRolling.current = false;
+        }, 350)
+      );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rolling, value]);
 
   const faceRotation = FACE_ROTATIONS[displayValue] || FACE_ROTATIONS[1];
-
-  const getTransform = () => {
-    if (phase === "shaking") return undefined;
-    return faceRotation;
-  };
 
   const glowClass =
     phase === "shaking"
@@ -107,17 +103,18 @@ export function Dice({ value, rolling }: { value: number | null; rolling: boolea
         ? "shadow-[0_0_20px_rgba(52,211,153,0.3)] border-emerald-400/40"
         : "border-gray-600 shadow-lg";
 
-  const animClass = phase === "shaking" ? "animate-dice-shake" : "";
-  const transitionClass = phase !== "shaking" ? "transition-transform duration-350 ease-[cubic-bezier(0.34,1.56,0.64,1)]" : "";
+  const transitionClass = phase !== "shaking" ? "transition-transform duration-300" : "";
 
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="w-24 h-24" style={{ perspective: "600px" }}>
         <div
-          className={`w-full h-full relative border-2 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 ${glowClass} ${animClass} ${transitionClass}`}
+          className={`w-full h-full relative border-2 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 ${glowClass} ${transitionClass}`}
           style={{
             transformStyle: "preserve-3d",
-            ...(getTransform() ? { transform: getTransform() } : {}),
+            transform: faceRotation,
+            ...(phase === "shaking" ? { animation: "dice-shake 0.15s ease-in-out infinite" } : {}),
+            transitionTimingFunction: phase === "landed" ? "cubic-bezier(0.34,1.56,0.64,1)" : undefined,
           }}
         >
           <div className="absolute inset-0 flex items-center justify-center rounded-[10px] bg-gradient-to-br from-gray-700 to-gray-800" style={{ transform: "translateZ(48px)" }}>

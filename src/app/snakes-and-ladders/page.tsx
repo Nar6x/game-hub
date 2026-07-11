@@ -20,7 +20,7 @@ export default function SnakesAndLaddersPage() {
   const isOnline = pageMode === "online" || online.state.gameStatus !== "idle";
 
   if (isOnline) {
-    if (online.state.gameStatus === "idle") {
+    if (online.state.gameStatus === "idle" || online.state.gameStatus === "waiting") {
       return (
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <OnlineSnakesLobby
