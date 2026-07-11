@@ -59,6 +59,9 @@ const FACE_ROTATIONS: Record<number, THREE.Euler> = {
   6: new THREE.Euler(0, Math.PI, 0),
 };
 
+const ROLL_DURATION = 2000;
+const SETTLE_DURATION = 1200;
+
 interface DiceMeshProps {
   value: number;
   rolling: boolean;
@@ -67,14 +70,19 @@ interface DiceMeshProps {
 
 function DiceMesh({ value, rolling, onSettled }: DiceMeshProps) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const phaseRef = useRef<"idle" | "rolling" | "settling">("idle");
+  const phaseRef = useRef<"idle" | "rolling" | "settling" | "landed">("idle");
   const velocityRef = useRef(new THREE.Vector3(0, 0, 0));
   const targetQuatRef = useRef(new THREE.Quaternion());
   const settleStartRef = useRef(0);
-  const settleDurationRef = useRef(800);
   const startQuatRef = useRef(new THREE.Quaternion());
-  const wasRollingRef = useRef(false);
+  const rollStartRef = useRef(0);
+  const pendingValueRef = useRef<number | null>(null);
   const valueRef = useRef(value);
+  const onSettledRef = useRef(onSettled);
+
+  useEffect(() => {
+    onSettledRef.current = onSettled;
+  }, [onSettled]);
 
   useEffect(() => {
     valueRef.current = value;
@@ -100,23 +108,25 @@ function DiceMesh({ value, rolling, onSettled }: DiceMeshProps) {
     };
   }, [materials]);
 
-  const startRolling = useCallback(() => {
+  const beginRolling = useCallback(() => {
     if (!meshRef.current) return;
     phaseRef.current = "rolling";
+    rollStartRef.current = performance.now();
     velocityRef.current.set(
-      (Math.random() * 2 + 4) * (Math.random() > 0.5 ? 1 : -1),
-      (Math.random() * 2 + 4) * (Math.random() > 0.5 ? 1 : -1),
-      (Math.random() * 2 + 4) * (Math.random() > 0.5 ? 1 : -1)
+      (Math.random() + 0.8) * (Math.random() > 0.5 ? 1 : -1),
+      (Math.random() + 0.8) * (Math.random() > 0.5 ? 1 : -1),
+      (Math.random() + 0.8) * (Math.random() > 0.5 ? 1 : -1)
     );
   }, []);
 
-  const startSettling = useCallback(() => {
+  const beginSettling = useCallback((targetValue: number) => {
     if (!meshRef.current) return;
     phaseRef.current = "settling";
     settleStartRef.current = performance.now();
     startQuatRef.current = meshRef.current.quaternion.clone();
+
     const targetQuat = new THREE.Quaternion();
-    const euler = FACE_ROTATIONS[valueRef.current] || FACE_ROTATIONS[1];
+    const euler = FACE_ROTATIONS[targetValue] || FACE_ROTATIONS[1];
     targetQuat.setFromEuler(euler);
 
     const dot = startQuatRef.current.dot(targetQuat);
@@ -127,15 +137,11 @@ function DiceMesh({ value, rolling, onSettled }: DiceMeshProps) {
   }, []);
 
   useEffect(() => {
-    if (rolling && !wasRollingRef.current) {
-      wasRollingRef.current = true;
-      startRolling();
+    if (rolling && (phaseRef.current === "idle" || phaseRef.current === "landed")) {
+      pendingValueRef.current = valueRef.current;
+      beginRolling();
     }
-    if (!rolling && wasRollingRef.current) {
-      wasRollingRef.current = false;
-      startSettling();
-    }
-  }, [rolling, startRolling, startSettling]);
+  }, [rolling, beginRolling]);
 
   useFrame(() => {
     if (!meshRef.current) return;
@@ -145,9 +151,14 @@ function DiceMesh({ value, rolling, onSettled }: DiceMeshProps) {
       rot.x += velocityRef.current.x * 0.016;
       rot.y += velocityRef.current.y * 0.016;
       rot.z += velocityRef.current.z * 0.016;
+
+      const elapsed = performance.now() - rollStartRef.current;
+      if (elapsed >= ROLL_DURATION && pendingValueRef.current !== null) {
+        beginSettling(pendingValueRef.current);
+      }
     } else if (phaseRef.current === "settling") {
       const elapsed = performance.now() - settleStartRef.current;
-      const t = Math.min(elapsed / settleDurationRef.current, 1);
+      const t = Math.min(elapsed / SETTLE_DURATION, 1);
       const ease = 1 - Math.pow(1 - t, 3);
 
       meshRef.current.quaternion.slerpQuaternions(
@@ -157,9 +168,9 @@ function DiceMesh({ value, rolling, onSettled }: DiceMeshProps) {
       );
 
       if (t >= 1) {
-        phaseRef.current = "idle";
+        phaseRef.current = "landed";
         meshRef.current.quaternion.copy(targetQuatRef.current);
-        onSettled?.();
+        onSettledRef.current?.();
       }
     }
   });
