@@ -253,24 +253,31 @@ export function useOnlineGame() {
   const findGame = useCallback(async () => {
     const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
 
-    const { data } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("game_type", "tictactoe")
-      .eq("status", "waiting")
-      .is("player2_name", null)
-      .gt("created_at", cutoff)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 500 + attempt * 300));
+      }
 
-    if (data) {
-      const result = await joinRoomByCode(data.invite_code);
-      if (result.error) await createRoom();
-    } else {
-      await createRoom();
+      const { data } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("game_type", "tictactoe")
+        .eq("status", "waiting")
+        .is("player2_name", null)
+        .neq("player1_name", username)
+        .gt("created_at", cutoff)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        const result = await joinRoomByCode(data.invite_code);
+        if (!result.error) return;
+      }
     }
-  }, [createRoom, joinRoomByCode]);
+
+    await createRoom();
+  }, [createRoom, joinRoomByCode, username]);
 
   const makeMove = useCallback(
     async (index: number) => {
