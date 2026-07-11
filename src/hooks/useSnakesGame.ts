@@ -32,6 +32,10 @@ const LADDERS: Record<number, number> = {
 
 const PLAYER_COLORS = ["#22d3ee", "#f43f5e", "#a78bfa", "#34d399"];
 
+const DICE_ANIM_MS = 1000;
+const SHOW_RESULT_MS = 1500;
+const STEP_DELAY = 120;
+
 function createPlayers(names: string[]): SnakesPlayer[] {
   return names.map((name, i) => ({
     name,
@@ -72,13 +76,15 @@ export function useSnakesGame() {
     const validNames = playerInputs.filter((n) => n.trim().length >= 1);
     if (validNames.length < 2) return;
 
+    const firstPlayer = Math.floor(Math.random() * validNames.length);
+
     setState({
       players: createPlayers(validNames.map((n) => n.trim())),
-      currentPlayerIndex: 0,
+      currentPlayerIndex: firstPlayer,
       diceValue: null,
       gameStatus: "rolling",
       winner: null,
-      message: `${validNames[0].trim()}'s turn to roll`,
+      message: `${validNames[firstPlayer].trim()}'s turn to roll`,
     });
   }, [playerInputs]);
 
@@ -86,105 +92,115 @@ export function useSnakesGame() {
     if (state.gameStatus !== "rolling") return;
 
     const diceValue = Math.floor(Math.random() * 6) + 1;
-    const rollStartTime = Date.now();
+    const playerIdx = state.currentPlayerIndex;
 
     setState((prev) => ({
       ...prev,
       diceValue,
-      gameStatus: "moving",
-      message: `Rolled a ${diceValue}!`,
+      message: "Rolling...",
     }));
 
-    const playerIdx = state.currentPlayerIndex;
-    const currentPlayerState = state.players[playerIdx];
-    let targetPos = currentPlayerState.position + diceValue;
+    // Wait for dice to land
+    setTimeout(() => {
+      setState((prev) => ({
+        ...prev,
+        message: `Rolled a ${diceValue}!`,
+      }));
 
-    if (targetPos > BOARD_SIZE) {
-      targetPos = currentPlayerState.position;
-    }
+      const currentPlayerState = state.players[playerIdx];
+      let targetPos = currentPlayerState.position + diceValue;
 
-    let step = currentPlayerState.position;
-    const steps: number[] = [];
-    while (step < targetPos) {
-      step++;
-      steps.push(step);
-    }
-
-    let currentStep = 0;
-    const interval = setInterval(() => {
-      if (currentStep >= steps.length) {
-        clearInterval(interval);
-
-        const DICE_ANIM_MS = 2000;
-        const SHOW_RESULT_MS = 2500;
-        const elapsed = Date.now() - rollStartTime;
-        const delay = Math.max(0, DICE_ANIM_MS - elapsed) + SHOW_RESULT_MS;
-
-        setTimeout(() => {
-          setState((prev) => {
-            const landedOnSnake = SNAKES[targetPos] !== undefined;
-            const landedOnLadder = LADDERS[targetPos] !== undefined;
-            const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
-
-            const newPlayers = prev.players.map((p, i) =>
-              i === playerIdx ? { ...p, position: finalPos } : p
-            );
-
-            let message = "";
-            let newStatus: "rolling" | "won" = "rolling";
-            let winner: string | null = null;
-
-            if (finalPos === BOARD_SIZE) {
-              message = `${newPlayers[playerIdx].name} wins!`;
-              newStatus = "won";
-              winner = newPlayers[playerIdx].name;
-            } else if (landedOnSnake) {
-              message = `${newPlayers[playerIdx].name} hit a snake! Slid down to ${finalPos}`;
-            } else if (landedOnLadder) {
-              message = `${newPlayers[playerIdx].name} climbed a ladder! Up to ${finalPos}`;
-            }
-
-            const nextIdx = (playerIdx + 1) % newPlayers.length;
-
-            if (newStatus === "rolling") {
-              message = `${newPlayers[nextIdx].name}'s turn to roll`;
-            }
-
-            return {
-              ...prev,
-              players: newPlayers,
-              currentPlayerIndex: winner !== null ? playerIdx : nextIdx,
-              gameStatus: newStatus,
-              winner,
-              message,
-            };
-          });
-        }, delay);
-
-        return;
+      if (targetPos > BOARD_SIZE) {
+        targetPos = currentPlayerState.position;
       }
 
-      setState((prev) => {
-        const newPlayers = prev.players.map((p, i) =>
-          i === playerIdx ? { ...p, position: steps[currentStep] } : p
-        );
-        return { ...prev, players: newPlayers };
-      });
+      let step = currentPlayerState.position;
+      const steps: number[] = [];
+      while (step < targetPos) {
+        step++;
+        steps.push(step);
+      }
 
-      currentStep++;
-    }, 120);
+      // Start movement after dice result is shown
+      setTimeout(() => {
+        setState((prev) => ({ ...prev, gameStatus: "moving" }));
+
+        let currentStep = 0;
+        const interval = setInterval(() => {
+          if (currentStep >= steps.length) {
+            clearInterval(interval);
+
+            // Show final position, then switch turns
+            setTimeout(() => {
+              setState((prev) => {
+                const landedOnSnake = SNAKES[targetPos] !== undefined;
+                const landedOnLadder = LADDERS[targetPos] !== undefined;
+                const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
+
+                const newPlayers = prev.players.map((p, i) =>
+                  i === playerIdx ? { ...p, position: finalPos } : p
+                );
+
+                let message = "";
+                let newStatus: "rolling" | "won" = "rolling";
+                let winner: string | null = null;
+
+                if (finalPos === BOARD_SIZE) {
+                  message = `${newPlayers[playerIdx].name} wins!`;
+                  newStatus = "won";
+                  winner = newPlayers[playerIdx].name;
+                } else if (landedOnSnake) {
+                  message = `${newPlayers[playerIdx].name} hit a snake! Slid down to ${finalPos}`;
+                } else if (landedOnLadder) {
+                  message = `${newPlayers[playerIdx].name} climbed a ladder! Up to ${finalPos}`;
+                }
+
+                const nextIdx = (playerIdx + 1) % newPlayers.length;
+
+                if (newStatus === "rolling") {
+                  message = `${newPlayers[nextIdx].name}'s turn to roll`;
+                }
+
+                return {
+                  ...prev,
+                  players: newPlayers,
+                  currentPlayerIndex: winner !== null ? playerIdx : nextIdx,
+                  gameStatus: newStatus,
+                  winner,
+                  message,
+                };
+              });
+            }, SHOW_RESULT_MS);
+
+            return;
+          }
+
+          setState((prev) => {
+            const newPlayers = prev.players.map((p, i) =>
+              i === playerIdx ? { ...p, position: steps[currentStep] } : p
+            );
+            return { ...prev, players: newPlayers };
+          });
+
+          currentStep++;
+        }, STEP_DELAY);
+      }, 500);
+    }, DICE_ANIM_MS);
   }, [state]);
 
   const resetGame = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      players: prev.players.map((p) => ({ ...p, position: 0 })),
-      currentPlayerIndex: 0,
-      diceValue: null,
-      gameStatus: "rolling",
-      winner: null,
-      message: `${prev.players[0]?.name}'s turn to roll`,
-    }));
+    setState((prev) => {
+      const firstPlayer = Math.floor(Math.random() * prev.players.length);
+      return {
+        ...prev,
+        players: prev.players.map((p) => ({ ...p, position: 0 })),
+        currentPlayerIndex: firstPlayer,
+        diceValue: null,
+        gameStatus: "rolling",
+        winner: null,
+        message: `${prev.players[firstPlayer]?.name}'s turn to roll`,
+      };
+    });
   }, []);
 
   const backToSetup = useCallback(() => {

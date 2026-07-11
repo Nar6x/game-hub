@@ -28,7 +28,7 @@ export function Dice({ value, rolling }: DiceProps) {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
     let count = 0;
-    const maxCount = 20;
+    const maxCount = 12;
 
     spinningRef.current = true;
 
@@ -42,7 +42,7 @@ export function Dice({ value, rolling }: DiceProps) {
         spinningRef.current = false;
         setDisplay(targetRef.current);
       }
-    }, 100);
+    }, 80);
   }, [rolling, value]);
 
   return (

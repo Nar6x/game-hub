@@ -21,6 +21,8 @@ const LADDERS: Record<number, number> = {
 const PLAYER_COLORS = ["#22d3ee", "#f43f5e", "#a78bfa", "#34d399"];
 const STALE_MINUTES = 5;
 const STEP_DELAY = 100;
+const DICE_ANIM_MS = 1000;
+const SHOW_RESULT_MS = 1500;
 
 interface SnakesRoomState {
   players: SnakesPlayer[];
@@ -171,8 +173,6 @@ export function useOnlineSnakes() {
                 newStatus = "won";
               } else if (roomState.gameStatus === "rolling") {
                 newStatus = isMyTurn ? "rolling" : "moving";
-              } else if (roomState.gameStatus === "moving") {
-                newStatus = "moving";
               } else if (roomState.gameStatus === "waiting") {
                 newStatus = "waiting";
               }
@@ -284,6 +284,7 @@ export function useOnlineSnakes() {
 
       const updatedPlayers = [...currentState.players, myPlayer];
       const newStatus = updatedPlayers.length >= room.max_players ? "playing" : "waiting";
+      const firstPlayer = Math.floor(Math.random() * updatedPlayers.length);
 
       const { error } = await supabase
         .from("rooms")
@@ -294,6 +295,7 @@ export function useOnlineSnakes() {
           state: {
             ...currentState,
             players: updatedPlayers,
+            currentPlayerIndex: newStatus === "playing" ? firstPlayer : currentState.currentPlayerIndex,
             gameStatus: newStatus === "playing" ? "rolling" : "waiting",
           },
         })
@@ -307,10 +309,11 @@ export function useOnlineSnakes() {
         inviteCode: room.invite_code,
         myIndex: playerIndex,
         players: updatedPlayers,
+        currentPlayerIndex: newStatus === "playing" ? firstPlayer : currentState.currentPlayerIndex,
         gameStatus: newStatus === "playing" ? "rolling" : "waiting",
         maxPlayers: room.max_players,
         message: newStatus === "playing"
-          ? `${updatedPlayers[0]?.name}'s turn to roll`
+          ? `${updatedPlayers[firstPlayer]?.name}'s turn to roll`
           : `Waiting for players (${updatedPlayers.length}/${room.max_players})`,
       }));
 
@@ -325,7 +328,6 @@ export function useOnlineSnakes() {
     if (state.currentPlayerIndex !== state.myIndex) return;
 
     const diceValue = Math.floor(Math.random() * 6) + 1;
-
     const currentState = state.players[state.myIndex];
     let targetPos = currentState.position + diceValue;
     if (targetPos > BOARD_SIZE) targetPos = currentState.position;
@@ -339,23 +341,32 @@ export function useOnlineSnakes() {
 
     processingRef.current = true;
 
-    const rollStartTime = Date.now();
+    // Show dice rolling
+    setState((prev) => ({ ...prev, diceValue, message: "Rolling..." }));
+
+    // Wait for dice to land
+    await new Promise((r) => setTimeout(r, DICE_ANIM_MS));
+
+    setState((prev) => ({ ...prev, message: `Rolled a ${diceValue}!` }));
+
+    // Brief pause to show result before movement
+    await new Promise((r) => setTimeout(r, 500));
+
+    // Animate movement locally (no Supabase updates per step)
+    setState((prev) => ({ ...prev, gameStatus: "moving" }));
 
     for (let i = 0; i < steps.length; i++) {
       await new Promise((r) => setTimeout(r, STEP_DELAY));
       const updatedPlayers = state.players.map((p, idx) =>
         idx === state.myIndex ? { ...p, position: steps[i] } : p
       );
-      setState((prev) => ({ ...prev, players: updatedPlayers, diceValue, gameStatus: "moving" }));
+      setState((prev) => ({ ...prev, players: updatedPlayers }));
     }
 
-    const DICE_ANIM_MS = 2000;
-    const SHOW_RESULT_MS = 2500;
-    const elapsed = Date.now() - rollStartTime;
-    const delay = Math.max(0, DICE_ANIM_MS - elapsed) + SHOW_RESULT_MS;
+    // Show final position
+    await new Promise((r) => setTimeout(r, SHOW_RESULT_MS));
 
-    await new Promise((r) => setTimeout(r, delay));
-
+    // Calculate final state and send ONE update to Supabase
     const landedOnSnake = SNAKES[targetPos] !== undefined;
     const landedOnLadder = LADDERS[targetPos] !== undefined;
     const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
@@ -366,12 +377,6 @@ export function useOnlineSnakes() {
 
     const isWinner = finalPos === BOARD_SIZE;
     const nextIdx = (state.myIndex + 1) % finalPlayers.length;
-
-    setState((prev) => ({
-      ...prev,
-      players: finalPlayers,
-      diceValue,
-    }));
 
     await supabase
       .from("rooms")
@@ -414,13 +419,15 @@ export function useOnlineSnakes() {
     if (!state.roomId) return;
 
     const resetPlayers = state.players.map((p) => ({ ...p, position: 0 }));
+    const winnerIndex = state.players.findIndex((p) => p.name === state.winner);
+    const firstPlayer = winnerIndex >= 0 ? winnerIndex : Math.floor(Math.random() * resetPlayers.length);
 
     await supabase
       .from("rooms")
       .update({
         state: {
           players: resetPlayers,
-          currentPlayerIndex: 0,
+          currentPlayerIndex: firstPlayer,
           diceValue: null,
           gameStatus: "rolling",
           winner: null,
@@ -429,7 +436,7 @@ export function useOnlineSnakes() {
         winner: null,
       })
       .eq("id", state.roomId);
-  }, [state.roomId, state.players]);
+  }, [state.roomId, state.players, state.winner]);
 
   return {
     state,

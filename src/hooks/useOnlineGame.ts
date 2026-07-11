@@ -183,6 +183,7 @@ export function useOnlineGame() {
     cleanupChannel();
     await cleanupStaleRooms();
     const inviteCode = generateInviteCode();
+    const mySymbol = Math.random() > 0.5 ? "X" : "O";
 
     const { data, error } = await supabase
       .from("rooms")
@@ -191,7 +192,7 @@ export function useOnlineGame() {
         player1_name: username,
         status: "waiting",
         invite_code: inviteCode,
-        state: { board: createEmptyBoard(), current_player: "X" },
+        state: { board: createEmptyBoard(), current_player: mySymbol },
         match_stats: DEFAULT_STATS,
       })
       .select()
@@ -203,7 +204,7 @@ export function useOnlineGame() {
       ...prev,
       roomId: data.id,
       inviteCode: data.invite_code,
-      mySymbol: "X",
+      mySymbol,
       status: "waiting",
       opponentName: null,
     }));
@@ -225,6 +226,8 @@ export function useOnlineGame() {
 
       if (!room) return { error: "Room not found or already full" };
 
+      const mySymbol = (room.state as { current_player: "X" | "O" }).current_player === "X" ? "O" : "X";
+
       const { error } = await supabase
         .from("rooms")
         .update({ player2_name: username, status: "playing" })
@@ -236,7 +239,7 @@ export function useOnlineGame() {
         ...prev,
         roomId: room.id,
         inviteCode: room.invite_code,
-        mySymbol: "O",
+        mySymbol,
         status: "playing",
         opponentName: room.player1_name,
         board: room.state.board as Board,
@@ -326,15 +329,17 @@ export function useOnlineGame() {
   const playAgain = useCallback(async () => {
     if (!state.roomId || !state.mySymbol) return;
 
+    const firstPlayer = state.winner || "X";
+
     await supabase
       .from("rooms")
       .update({
-        state: { board: createEmptyBoard(), current_player: "X" },
+        state: { board: createEmptyBoard(), current_player: firstPlayer },
         status: "playing",
         winner: null,
       })
       .eq("id", state.roomId);
-  }, [state.roomId, state.mySymbol]);
+  }, [state.roomId, state.mySymbol, state.winner]);
 
   const leaveRoom = useCallback(async () => {
     if (state.roomId) {

@@ -142,10 +142,11 @@ export function useGameState() {
   }, [state.gameMode, state.currentPlayer, state.gameStatus]);
 
   const startGame = useCallback((mode: GameMode, difficulty?: Difficulty) => {
+    const firstPlayer: Player = mode === "pvp" ? (Math.random() > 0.5 ? "X" : "O") : "X";
     setState((prev) => ({
       ...prev,
       board: createEmptyBoard(),
-      currentPlayer: "X",
+      currentPlayer: firstPlayer,
       gameMode: mode,
       difficulty: difficulty ?? prev.difficulty,
       gameStatus: "playing",
@@ -168,15 +169,20 @@ export function useGameState() {
   }, []);
 
   const playAgain = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      board: createEmptyBoard(),
-      currentPlayer: "X",
-      gameStatus: "playing",
-      winner: null,
-      winningLine: null,
-      moveHistory: [],
-    }));
+    setState((prev) => {
+      const firstPlayer: Player = prev.gameMode === "pvp"
+        ? (prev.winner ? prev.winner : (Math.random() > 0.5 ? "X" : "O"))
+        : "X";
+      return {
+        ...prev,
+        board: createEmptyBoard(),
+        currentPlayer: firstPlayer,
+        gameStatus: "playing",
+        winner: null,
+        winningLine: null,
+        moveHistory: [],
+      };
+    });
   }, []);
 
   const resetScores = useCallback(() => {
