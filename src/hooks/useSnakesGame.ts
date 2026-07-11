@@ -180,9 +180,10 @@ export function useSnakesGame() {
             return;
           }
 
+          const stepPos = steps[currentStep];
           setState((prev) => {
             const newPlayers = prev.players.map((p, i) =>
-              i === playerIdx ? { ...p, position: steps[currentStep] } : p
+              i === playerIdx ? { ...p, position: stepPos } : p
             );
             return { ...prev, players: newPlayers };
           });
