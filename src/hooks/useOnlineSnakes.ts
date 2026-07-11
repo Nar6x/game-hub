@@ -339,6 +339,8 @@ export function useOnlineSnakes() {
 
     processingRef.current = true;
 
+    const rollStartTime = Date.now();
+
     for (let i = 0; i < steps.length; i++) {
       await new Promise((r) => setTimeout(r, STEP_DELAY));
       const updatedPlayers = state.players.map((p, idx) =>
@@ -346,6 +348,13 @@ export function useOnlineSnakes() {
       );
       setState((prev) => ({ ...prev, players: updatedPlayers, diceValue, gameStatus: "moving" }));
     }
+
+    const DICE_ANIM_MS = 2000;
+    const SHOW_RESULT_MS = 2500;
+    const elapsed = Date.now() - rollStartTime;
+    const delay = Math.max(0, DICE_ANIM_MS - elapsed) + SHOW_RESULT_MS;
+
+    await new Promise((r) => setTimeout(r, delay));
 
     const landedOnSnake = SNAKES[targetPos] !== undefined;
     const landedOnLadder = LADDERS[targetPos] !== undefined;

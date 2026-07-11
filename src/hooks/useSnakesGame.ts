@@ -86,6 +86,7 @@ export function useSnakesGame() {
     if (state.gameStatus !== "rolling") return;
 
     const diceValue = Math.floor(Math.random() * 6) + 1;
+    const rollStartTime = Date.now();
 
     setState((prev) => ({
       ...prev,
@@ -114,44 +115,51 @@ export function useSnakesGame() {
       if (currentStep >= steps.length) {
         clearInterval(interval);
 
-        setState((prev) => {
-          const landedOnSnake = SNAKES[targetPos] !== undefined;
-          const landedOnLadder = LADDERS[targetPos] !== undefined;
-          const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
+        const DICE_ANIM_MS = 2000;
+        const SHOW_RESULT_MS = 2500;
+        const elapsed = Date.now() - rollStartTime;
+        const delay = Math.max(0, DICE_ANIM_MS - elapsed) + SHOW_RESULT_MS;
 
-          const newPlayers = prev.players.map((p, i) =>
-            i === playerIdx ? { ...p, position: finalPos } : p
-          );
+        setTimeout(() => {
+          setState((prev) => {
+            const landedOnSnake = SNAKES[targetPos] !== undefined;
+            const landedOnLadder = LADDERS[targetPos] !== undefined;
+            const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
 
-          let message = "";
-          let newStatus: "rolling" | "won" = "rolling";
-          let winner: string | null = null;
+            const newPlayers = prev.players.map((p, i) =>
+              i === playerIdx ? { ...p, position: finalPos } : p
+            );
 
-          if (finalPos === BOARD_SIZE) {
-            message = `${newPlayers[playerIdx].name} wins!`;
-            newStatus = "won";
-            winner = newPlayers[playerIdx].name;
-          } else if (landedOnSnake) {
-            message = `${newPlayers[playerIdx].name} hit a snake! Slid down to ${finalPos}`;
-          } else if (landedOnLadder) {
-            message = `${newPlayers[playerIdx].name} climbed a ladder! Up to ${finalPos}`;
-          }
+            let message = "";
+            let newStatus: "rolling" | "won" = "rolling";
+            let winner: string | null = null;
 
-          const nextIdx = (playerIdx + 1) % newPlayers.length;
+            if (finalPos === BOARD_SIZE) {
+              message = `${newPlayers[playerIdx].name} wins!`;
+              newStatus = "won";
+              winner = newPlayers[playerIdx].name;
+            } else if (landedOnSnake) {
+              message = `${newPlayers[playerIdx].name} hit a snake! Slid down to ${finalPos}`;
+            } else if (landedOnLadder) {
+              message = `${newPlayers[playerIdx].name} climbed a ladder! Up to ${finalPos}`;
+            }
 
-          if (newStatus === "rolling") {
-            message = `${newPlayers[nextIdx].name}'s turn to roll`;
-          }
+            const nextIdx = (playerIdx + 1) % newPlayers.length;
 
-          return {
-            ...prev,
-            players: newPlayers,
-            currentPlayerIndex: winner !== null ? playerIdx : nextIdx,
-            gameStatus: newStatus,
-            winner,
-            message,
-          };
-        });
+            if (newStatus === "rolling") {
+              message = `${newPlayers[nextIdx].name}'s turn to roll`;
+            }
+
+            return {
+              ...prev,
+              players: newPlayers,
+              currentPlayerIndex: winner !== null ? playerIdx : nextIdx,
+              gameStatus: newStatus,
+              winner,
+              message,
+            };
+          });
+        }, delay);
 
         return;
       }
