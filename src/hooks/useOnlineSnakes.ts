@@ -31,6 +31,7 @@ interface SnakesRoomState {
   diceValue: number | null;
   gameStatus: "waiting" | "rolling" | "rolling_dice" | "moving" | "won";
   winner: string | null;
+  version: number;
 }
 
 interface OnlineSnakesState {
@@ -53,6 +54,7 @@ const DEFAULT_ROOM_STATE: SnakesRoomState = {
   diceValue: null,
   gameStatus: "waiting",
   winner: null,
+  version: 0,
 };
 
 function generateInviteCode(): string {
@@ -111,6 +113,7 @@ export function useOnlineSnakes() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const animatingRef = useRef(false);
   const stateRef = useRef(state);
+  const lastVersionRef = useRef(-1);
 
   useEffect(() => {
     stateRef.current = state;
@@ -277,6 +280,7 @@ export function useOnlineSnakes() {
             };
 
             const roomState = room.state || DEFAULT_ROOM_STATE;
+            const incomingVersion = roomState.version ?? 0;
             const isAnimating = animatingRef.current;
 
             setState((prev) => {
@@ -291,6 +295,11 @@ export function useOnlineSnakes() {
                 }
                 return prev;
               }
+
+              if (incomingVersion <= lastVersionRef.current && roomState.gameStatus !== "won") {
+                return prev;
+              }
+              lastVersionRef.current = incomingVersion;
 
               const myIndex = prev.myIndex;
 
@@ -360,6 +369,7 @@ export function useOnlineSnakes() {
         diceValue: null,
         gameStatus: "waiting",
         winner: null,
+        version: 0,
       };
 
       const { data, error } = await supabase
@@ -389,6 +399,7 @@ export function useOnlineSnakes() {
         message: `Waiting for players (${1}/${playerCount})`,
       }));
 
+      lastVersionRef.current = -1;
       subscribeToRoom(data.id);
     },
     [username, cleanupChannel, subscribeToRoom]
@@ -435,6 +446,7 @@ export function useOnlineSnakes() {
             players: updatedPlayers,
             currentPlayerIndex: newStatus === "playing" ? firstPlayer : currentState.currentPlayerIndex,
             gameStatus: newStatus === "playing" ? "rolling" : "waiting",
+            version: 0,
           },
         })
         .eq("id", room.id);
@@ -455,6 +467,7 @@ export function useOnlineSnakes() {
           : `Waiting for players (${updatedPlayers.length}/${room.max_players})`,
       }));
 
+      lastVersionRef.current = -1;
       subscribeToRoom(room.id);
       return { error: null };
     },
@@ -468,6 +481,7 @@ export function useOnlineSnakes() {
     const diceValue = Math.floor(Math.random() * 6) + 1;
     const myIndex = state.myIndex;
     const startPos = state.players[myIndex].position;
+    const rollVersion = (stateRef.current.roomId ? (lastVersionRef.current + 1) : 0);
 
     animateLocally(diceValue, myIndex, startPos);
 
@@ -480,6 +494,7 @@ export function useOnlineSnakes() {
           diceValue,
           gameStatus: "rolling_dice",
           winner: null,
+          version: rollVersion,
         },
       })
       .eq("id", state.roomId);
@@ -506,6 +521,7 @@ export function useOnlineSnakes() {
           diceValue,
           gameStatus: isWinner ? "won" : "rolling",
           winner: isWinner ? username : null,
+          version: rollVersion + 1,
         },
         winner: isWinner ? username : null,
         status: isWinner ? "finished" : "playing",
@@ -518,6 +534,7 @@ export function useOnlineSnakes() {
       await supabase.from("rooms").delete().eq("id", state.roomId);
     }
     cleanupChannel();
+    lastVersionRef.current = -1;
     setState({
       players: [],
       currentPlayerIndex: 0,
@@ -540,6 +557,8 @@ export function useOnlineSnakes() {
     const winnerIndex = state.players.findIndex((p) => p.name === state.winner);
     const firstPlayer = winnerIndex >= 0 ? winnerIndex : Math.floor(Math.random() * resetPlayers.length);
 
+    lastVersionRef.current = -1;
+
     await supabase
       .from("rooms")
       .update({
@@ -549,6 +568,7 @@ export function useOnlineSnakes() {
           diceValue: null,
           gameStatus: "rolling",
           winner: null,
+          version: 0,
         },
         status: "playing",
         winner: null,
