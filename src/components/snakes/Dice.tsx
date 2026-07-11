@@ -9,23 +9,21 @@ interface DiceProps {
 
 export function Dice({ value, rolling }: DiceProps) {
   const [display, setDisplay] = useState(1);
+  const [isComplete, setIsComplete] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const wasRollingRef = useRef(false);
+  const rollingRef = useRef(rolling);
 
   useEffect(() => {
-    const currentInterval = intervalRef.current;
     return () => {
-      if (currentInterval) clearInterval(currentInterval);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (rolling && !wasRollingRef.current) {
-      wasRollingRef.current = true;
-
+    if (rolling) {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      rollingRef.current = true;
 
-      const target = value ?? 1;
       let count = 0;
       const maxCount = 10;
 
@@ -36,21 +34,20 @@ export function Dice({ value, rolling }: DiceProps) {
         } else {
           if (intervalRef.current) clearInterval(intervalRef.current);
           intervalRef.current = null;
-          wasRollingRef.current = false;
-          setDisplay(target);
+          setDisplay(value ?? 1);
+          rollingRef.current = false;
+          setIsComplete(true);
         }
       }, 100);
-    }
-
-    if (!rolling) {
-      wasRollingRef.current = false;
     }
   }, [rolling, value]);
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div
-        className="w-24 h-24 rounded-2xl border-2 flex items-center justify-center select-none transition-all duration-300 bg-gradient-to-br from-gray-700 to-gray-800 border-gray-500 shadow-lg"
+        className={`w-24 h-24 rounded-2xl border-2 flex items-center justify-center select-none transition-all duration-200 bg-gradient-to-br from-gray-700 to-gray-800 shadow-lg ${
+          isComplete ? "border-emerald-400 shadow-emerald-400/20" : "border-gray-500"
+        }`}
       >
         <span className="text-5xl font-black tabular-nums text-emerald-400">
           {display}
