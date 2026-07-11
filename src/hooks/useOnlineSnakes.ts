@@ -330,11 +330,12 @@ export function useOnlineSnakes() {
     if (state.currentPlayerIndex !== state.myIndex) return;
 
     const diceValue = Math.floor(Math.random() * 6) + 1;
-    const currentState = state.players[state.myIndex];
-    let targetPos = currentState.position + diceValue;
-    if (targetPos > BOARD_SIZE) targetPos = currentState.position;
+    const myIndex = state.myIndex;
+    const startPos = state.players[myIndex].position;
+    let targetPos = startPos + diceValue;
+    if (targetPos > BOARD_SIZE) targetPos = startPos;
 
-    let step = currentState.position;
+    let step = startPos;
     const steps: number[] = [];
     while (step < targetPos) {
       step++;
@@ -349,19 +350,24 @@ export function useOnlineSnakes() {
     // Wait for dice animation (1s)
     await new Promise((r) => setTimeout(r, DICE_ANIM_MS));
 
-    // Wait 1s showing result before movement
+    // Stop dice, show result
     setState((prev) => ({ ...prev, diceRolling: false, message: `Rolled a ${diceValue}!` }));
-    await new Promise((r) => setTimeout(r, SHOW_RESULT_MS));
 
-    // Start movement
+    // Wait 1 second showing the result before movement
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // Start movement — use functional setState to avoid stale players
     setState((prev) => ({ ...prev, gameStatus: "moving" }));
 
     for (let i = 0; i < steps.length; i++) {
       await new Promise((r) => setTimeout(r, STEP_DELAY));
-      const updatedPlayers = state.players.map((p, idx) =>
-        idx === state.myIndex ? { ...p, position: steps[i] } : p
-      );
-      setState((prev) => ({ ...prev, players: updatedPlayers }));
+      const currentStep = steps[i];
+      setState((prev) => {
+        const updatedPlayers = prev.players.map((p, idx) =>
+          idx === myIndex ? { ...p, position: currentStep } : p
+        );
+        return { ...prev, players: updatedPlayers };
+      });
     }
 
     // Show final position briefly
@@ -373,18 +379,18 @@ export function useOnlineSnakes() {
     const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
 
     const finalPlayers = state.players.map((p, idx) =>
-      idx === state.myIndex ? { ...p, position: finalPos } : p
+      idx === myIndex ? { ...p, position: finalPos } : p
     );
 
     const isWinner = finalPos === BOARD_SIZE;
-    const nextIdx = (state.myIndex + 1) % finalPlayers.length;
+    const nextIdx = (myIndex + 1) % finalPlayers.length;
 
     await supabase
       .from("rooms")
       .update({
         state: {
           players: finalPlayers,
-          currentPlayerIndex: isWinner ? state.myIndex : nextIdx,
+          currentPlayerIndex: isWinner ? myIndex : nextIdx,
           diceValue,
           gameStatus: isWinner ? "won" : "rolling",
           winner: isWinner ? username : null,
