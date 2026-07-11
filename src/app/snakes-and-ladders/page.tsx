@@ -5,7 +5,7 @@ import { useUser } from "@/components/shared/UserContext";
 import { useSnakesGame } from "@/hooks/useSnakesGame";
 import { useOnlineSnakes } from "@/hooks/useOnlineSnakes";
 import { SnakesBoard } from "@/components/snakes/SnakesBoard";
-import { Dice3D } from "@/components/snakes/Dice3D";
+import { Dice } from "@/components/snakes/Dice";
 import { PlayerSetup } from "@/components/snakes/PlayerSetup";
 import { OnlineSnakesLobby } from "@/components/snakes/OnlineSnakesLobby";
 
@@ -124,7 +124,7 @@ export default function SnakesAndLaddersPage() {
               </div>
 
               <div className="py-2">
-                <Dice3D value={online.state.diceValue} rolling={online.state.gameStatus === "moving"} />
+                <Dice value={online.state.diceValue} rolling={online.state.gameStatus === "moving"} />
               </div>
 
               <div className="flex gap-3 w-full">
@@ -256,7 +256,7 @@ export default function SnakesAndLaddersPage() {
                 </div>
 
                 <div className="py-2">
-                  <Dice3D value={local.state.diceValue} rolling={local.state.gameStatus === "moving"} />
+                  <Dice value={local.state.diceValue} rolling={local.state.gameStatus === "moving"} />
                 </div>
 
                 <div className="flex gap-3 w-full">
