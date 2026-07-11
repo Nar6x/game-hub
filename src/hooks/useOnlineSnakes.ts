@@ -23,12 +23,13 @@ const STALE_MINUTES = 5;
 const STEP_DELAY = 100;
 const DICE_ANIM_MS = 1000;
 const SHOW_RESULT_MS = 1000;
+const PAUSE_BEFORE_MOVE_MS = 500;
 
 interface SnakesRoomState {
   players: SnakesPlayer[];
   currentPlayerIndex: number;
   diceValue: number | null;
-  gameStatus: "waiting" | "rolling" | "moving" | "won";
+  gameStatus: "waiting" | "rolling" | "rolling_dice" | "moving" | "won";
   winner: string | null;
 }
 
@@ -36,7 +37,7 @@ interface OnlineSnakesState {
   players: SnakesPlayer[];
   currentPlayerIndex: number;
   diceValue: number | null;
-  gameStatus: "idle" | "waiting" | "rolling" | "moving" | "won" | "opponent_left";
+  gameStatus: "idle" | "waiting" | "rolling" | "rolling_dice" | "moving" | "won" | "opponent_left";
   myIndex: number | null;
   roomId: string | null;
   inviteCode: string | null;
@@ -72,6 +73,24 @@ async function cleanupStaleRooms() {
     .lt("created_at", cutoff);
 }
 
+function computeSteps(startPos: number, diceValue: number): number[] {
+  let targetPos = startPos + diceValue;
+  if (targetPos > BOARD_SIZE) targetPos = startPos;
+  const steps: number[] = [];
+  let step = startPos;
+  while (step < targetPos) {
+    step++;
+    steps.push(step);
+  }
+  return steps;
+}
+
+function computeFinalPos(targetPos: number): number {
+  if (SNAKES[targetPos] !== undefined) return SNAKES[targetPos];
+  if (LADDERS[targetPos] !== undefined) return LADDERS[targetPos];
+  return targetPos;
+}
+
 export function useOnlineSnakes() {
   const { username } = useUser();
   const [state, setState] = useState<OnlineSnakesState>({
@@ -89,7 +108,7 @@ export function useOnlineSnakes() {
   });
   const channelRef = useRef<RealtimeChannel | null>(null);
   const roomIdRef = useRef<string | null>(null);
-  const processingRef = useRef(false);
+  const animatingRef = useRef(false);
 
   const cleanupChannel = useCallback(() => {
     if (channelRef.current) {
@@ -121,6 +140,101 @@ export function useOnlineSnakes() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
+  const animateLocally = useCallback(
+    (diceVal: number, playerIdx: number, startPos: number) => {
+      if (animatingRef.current) return;
+      animatingRef.current = true;
+
+      const targetPos = Math.min(startPos + diceVal, BOARD_SIZE);
+      const steps = computeSteps(startPos, diceVal);
+
+      // Phase 1: dice rolling
+      setState((prev) => ({
+        ...prev,
+        diceValue: diceVal,
+        diceRolling: true,
+        gameStatus: "rolling_dice",
+        message: "Rolling...",
+      }));
+
+      setTimeout(() => {
+        // Phase 2: dice stopped, show result
+        setState((prev) => ({
+          ...prev,
+          diceRolling: false,
+          message: `Rolled a ${diceVal}!`,
+        }));
+
+        // Phase 3: pause before movement
+        setTimeout(() => {
+          setState((prev) => ({ ...prev, gameStatus: "moving" }));
+
+          // Phase 4: step by step movement
+          let currentStep = 0;
+          const interval = setInterval(() => {
+            if (currentStep >= steps.length) {
+              clearInterval(interval);
+
+              // Phase 5: show final position, then apply snake/ladder
+              setTimeout(() => {
+                const finalPos = computeFinalPos(targetPos);
+
+                setState((prev) => {
+                  const newPlayers = prev.players.map((p, i) =>
+                    i === playerIdx ? { ...p, position: finalPos } : p
+                  );
+
+                  let message = "";
+                  let newStatus: "rolling" | "won" = "rolling";
+                  let winner: string | null = null;
+
+                  if (finalPos === BOARD_SIZE) {
+                    message = `${newPlayers[playerIdx].name} wins!`;
+                    newStatus = "won";
+                    winner = newPlayers[playerIdx].name;
+                  } else if (SNAKES[targetPos] !== undefined) {
+                    message = `${newPlayers[playerIdx].name} hit a snake! Slid down to ${finalPos}`;
+                  } else if (LADDERS[targetPos] !== undefined) {
+                    message = `${newPlayers[playerIdx].name} climbed a ladder! Up to ${finalPos}`;
+                  }
+
+                  const nextIdx = (playerIdx + 1) % newPlayers.length;
+                  if (newStatus === "rolling") {
+                    message = `${newPlayers[nextIdx].name}'s turn to roll`;
+                  }
+
+                  return {
+                    ...prev,
+                    players: newPlayers,
+                    currentPlayerIndex: winner !== null ? playerIdx : nextIdx,
+                    gameStatus: newStatus,
+                    winner,
+                    message,
+                  };
+                });
+
+                animatingRef.current = false;
+              }, SHOW_RESULT_MS);
+
+              return;
+            }
+
+            const stepPos = steps[currentStep];
+            setState((prev) => ({
+              ...prev,
+              players: prev.players.map((p, i) =>
+                i === playerIdx ? { ...p, position: stepPos } : p
+              ),
+            }));
+
+            currentStep++;
+          }, STEP_DELAY);
+        }, PAUSE_BEFORE_MOVE_MS);
+      }, DICE_ANIM_MS);
+    },
+    []
+  );
+
   const subscribeToRoom = useCallback(
     (roomId: string) => {
       if (channelRef.current) {
@@ -149,8 +263,6 @@ export function useOnlineSnakes() {
               return;
             }
 
-            if (processingRef.current) return;
-
             const room = payload.new as {
               state: SnakesRoomState;
               player1_name: string;
@@ -163,7 +275,43 @@ export function useOnlineSnakes() {
 
             const roomState = room.state || DEFAULT_ROOM_STATE;
 
+            // If opponent rolled, trigger local animation
+            if (
+              roomState.gameStatus === "rolling_dice" &&
+              roomState.diceValue !== null &&
+              !animatingRef.current
+            ) {
+              setState((prev) => {
+                const myIndex = prev.myIndex;
+                if (myIndex === null) return prev;
+
+                const isMyTurn = roomState.currentPlayerIndex === myIndex;
+
+                // If it's NOT my turn, animate the opponent locally
+                if (!isMyTurn) {
+                  const startPos = roomState.players[roomState.currentPlayerIndex]?.position ?? 0;
+                  setTimeout(() => {
+                    animateLocally(roomState.diceValue!, roomState.currentPlayerIndex, startPos);
+                  }, 0);
+                }
+
+                return {
+                  ...prev,
+                  players: roomState.players.length > 0 ? roomState.players : room.players_info,
+                  currentPlayerIndex: roomState.currentPlayerIndex,
+                  diceValue: roomState.diceValue,
+                  gameStatus: isMyTurn ? "rolling" : "rolling_dice",
+                  maxPlayers: room.max_players || 2,
+                  message: isMyTurn ? "Your turn to roll" : `Rolling...`,
+                };
+              });
+              return;
+            }
+
+            // For final state updates (rolling, won, waiting)
             setState((prev) => {
+              if (animatingRef.current) return prev;
+
               const myIndex = prev.myIndex;
               const isMyTurn = myIndex !== null && roomState.currentPlayerIndex === myIndex;
 
@@ -193,7 +341,7 @@ export function useOnlineSnakes() {
 
               return {
                 ...prev,
-                players: roomState.players.length > 0 ? roomState.players : (room.players_info || []),
+                players: roomState.players.length > 0 ? roomState.players : room.players_info,
                 currentPlayerIndex: roomState.currentPlayerIndex,
                 diceValue: roomState.diceValue,
                 gameStatus: newStatus,
@@ -208,7 +356,7 @@ export function useOnlineSnakes() {
 
       channelRef.current = channel;
     },
-    []
+    [animateLocally]
   );
 
   const createRoom = useCallback(
@@ -328,60 +476,39 @@ export function useOnlineSnakes() {
   const rollDice = useCallback(async () => {
     if (!state.roomId || state.gameStatus !== "rolling" || state.myIndex === null) return;
     if (state.currentPlayerIndex !== state.myIndex) return;
+    if (animatingRef.current) return;
 
     const diceValue = Math.floor(Math.random() * 6) + 1;
     const myIndex = state.myIndex;
     const startPos = state.players[myIndex].position;
-    let targetPos = startPos + diceValue;
-    if (targetPos > BOARD_SIZE) targetPos = startPos;
 
-    let step = startPos;
-    const steps: number[] = [];
-    while (step < targetPos) {
-      step++;
-      steps.push(step);
-    }
+    // Animate locally first (no waiting for Supabase)
+    animateLocally(diceValue, myIndex, startPos);
 
-    processingRef.current = true;
+    // Send dice value to Supabase so opponent sees it
+    await supabase
+      .from("rooms")
+      .update({
+        state: {
+          players: state.players,
+          currentPlayerIndex: myIndex,
+          diceValue,
+          gameStatus: "rolling_dice",
+          winner: null,
+        },
+      })
+      .eq("id", state.roomId);
 
-    // Start dice rolling immediately
-    setState((prev) => ({ ...prev, diceValue, diceRolling: true, message: "Rolling..." }));
+    // Wait for local animation to finish (dice + pause + movement + result display)
+    const totalAnimMs = DICE_ANIM_MS + PAUSE_BEFORE_MOVE_MS + (computeSteps(startPos, diceValue).length * STEP_DELAY) + SHOW_RESULT_MS + 200;
+    await new Promise((r) => setTimeout(r, totalAnimMs));
 
-    // Wait for dice animation (1s)
-    await new Promise((r) => setTimeout(r, DICE_ANIM_MS));
-
-    // Stop dice, show result
-    setState((prev) => ({ ...prev, diceRolling: false, message: `Rolled a ${diceValue}!` }));
-
-    // Wait 1 second showing the result before movement
-    await new Promise((r) => setTimeout(r, 1000));
-
-    // Start movement — use functional setState to avoid stale players
-    setState((prev) => ({ ...prev, gameStatus: "moving" }));
-
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise((r) => setTimeout(r, STEP_DELAY));
-      const currentStep = steps[i];
-      setState((prev) => {
-        const updatedPlayers = prev.players.map((p, idx) =>
-          idx === myIndex ? { ...p, position: currentStep } : p
-        );
-        return { ...prev, players: updatedPlayers };
-      });
-    }
-
-    // Show final position briefly
-    await new Promise((r) => setTimeout(r, SHOW_RESULT_MS));
-
-    // Calculate final state and send ONE update to Supabase
-    const landedOnSnake = SNAKES[targetPos] !== undefined;
-    const landedOnLadder = LADDERS[targetPos] !== undefined;
-    const finalPos = landedOnSnake ? SNAKES[targetPos] : landedOnLadder ? LADDERS[targetPos] : targetPos;
-
+    // Compute final state and send to Supabase
+    const targetPos = Math.min(startPos + diceValue, BOARD_SIZE);
+    const finalPos = computeFinalPos(targetPos);
     const finalPlayers = state.players.map((p, idx) =>
       idx === myIndex ? { ...p, position: finalPos } : p
     );
-
     const isWinner = finalPos === BOARD_SIZE;
     const nextIdx = (myIndex + 1) % finalPlayers.length;
 
@@ -399,9 +526,7 @@ export function useOnlineSnakes() {
         status: isWinner ? "finished" : "playing",
       })
       .eq("id", state.roomId);
-
-    processingRef.current = false;
-  }, [state, username]);
+  }, [state, username, animateLocally]);
 
   const leaveRoom = useCallback(async () => {
     if (state.roomId) {
