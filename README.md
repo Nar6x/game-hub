@@ -116,16 +116,6 @@ src/
 4. **Realtime Sync** — all moves sync instantly via Supabase Realtime (WebSocket)
 5. **Disconnect Handling** — closing a tab auto-deletes the room; stale rooms clean up after 5 minutes
 
-## Deployment
-
-This project is configured for [Vercel](https://vercel.com):
-
-```bash
-npx vercel
-```
-
-Set the environment variables in your Vercel dashboard under Settings > Environment Variables.
-
 ## License
 
 MIT
