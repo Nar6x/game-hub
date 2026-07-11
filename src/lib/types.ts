@@ -79,6 +79,7 @@ export interface SnakesGameState {
   players: SnakesPlayer[];
   currentPlayerIndex: number;
   diceValue: number | null;
+  diceRolling: boolean;
   gameStatus: "waiting" | "rolling" | "moving" | "won" | "waiting_for_players";
   winner: string | null;
   message: string;

@@ -21,7 +21,7 @@ const LADDERS: Record<number, number> = {
 const PLAYER_COLORS = ["#22d3ee", "#f43f5e", "#a78bfa", "#34d399"];
 const STALE_MINUTES = 5;
 const STEP_DELAY = 100;
-const DICE_ANIM_MS = 500;
+const DICE_ANIM_MS = 1000;
 const SHOW_RESULT_MS = 1000;
 
 interface SnakesRoomState {
@@ -43,6 +43,7 @@ interface OnlineSnakesState {
   winner: string | null;
   message: string;
   maxPlayers: number;
+  diceRolling: boolean;
 }
 
 const DEFAULT_ROOM_STATE: SnakesRoomState = {
@@ -84,6 +85,7 @@ export function useOnlineSnakes() {
     winner: null,
     message: "",
     maxPlayers: 2,
+    diceRolling: false,
   });
   const channelRef = useRef<RealtimeChannel | null>(null);
   const roomIdRef = useRef<string | null>(null);
@@ -341,14 +343,18 @@ export function useOnlineSnakes() {
 
     processingRef.current = true;
 
-    // Show dice rolling
-    setState((prev) => ({ ...prev, diceValue, message: "Rolling..." }));
+    // Start dice rolling immediately
+    setState((prev) => ({ ...prev, diceValue, diceRolling: true, message: "Rolling..." }));
 
-    // Wait for dice to land
+    // Wait for dice animation (1s)
     await new Promise((r) => setTimeout(r, DICE_ANIM_MS));
 
-    // Animate movement immediately after dice lands
-    setState((prev) => ({ ...prev, message: `Rolled a ${diceValue}!`, gameStatus: "moving" }));
+    // Wait 1s showing result before movement
+    setState((prev) => ({ ...prev, diceRolling: false, message: `Rolled a ${diceValue}!` }));
+    await new Promise((r) => setTimeout(r, SHOW_RESULT_MS));
+
+    // Start movement
+    setState((prev) => ({ ...prev, gameStatus: "moving" }));
 
     for (let i = 0; i < steps.length; i++) {
       await new Promise((r) => setTimeout(r, STEP_DELAY));
@@ -407,6 +413,7 @@ export function useOnlineSnakes() {
       winner: null,
       message: "",
       maxPlayers: 2,
+      diceRolling: false,
     });
   }, [state.roomId, cleanupChannel]);
 

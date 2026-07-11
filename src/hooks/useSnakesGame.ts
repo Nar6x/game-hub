@@ -32,7 +32,7 @@ const LADDERS: Record<number, number> = {
 
 const PLAYER_COLORS = ["#22d3ee", "#f43f5e", "#a78bfa", "#34d399"];
 
-const DICE_ANIM_MS = 500;
+const DICE_ANIM_MS = 1000;
 const SHOW_RESULT_MS = 1000;
 const STEP_DELAY = 120;
 
@@ -49,6 +49,7 @@ export function useSnakesGame() {
     players: [],
     currentPlayerIndex: 0,
     diceValue: null,
+    diceRolling: false,
     gameStatus: "waiting_for_players",
     winner: null,
     message: "Add players to start",
@@ -82,6 +83,7 @@ export function useSnakesGame() {
       players: createPlayers(validNames.map((n) => n.trim())),
       currentPlayerIndex: firstPlayer,
       diceValue: null,
+      diceRolling: false,
       gameStatus: "rolling",
       winner: null,
       message: `${validNames[firstPlayer].trim()}'s turn to roll`,
@@ -94,14 +96,17 @@ export function useSnakesGame() {
     const diceValue = Math.floor(Math.random() * 6) + 1;
     const playerIdx = state.currentPlayerIndex;
 
+    // Start dice rolling immediately
     setState((prev) => ({
       ...prev,
       diceValue,
+      diceRolling: true,
       message: "Rolling...",
     }));
 
-    // Wait for dice to land
+    // Wait for dice animation (1s) + 1s showing result, then move
     setTimeout(() => {
+      setState((prev) => ({ ...prev, diceRolling: false }));
       const currentPlayerState = state.players[playerIdx];
       let targetPos = currentPlayerState.position + diceValue;
 
@@ -116,7 +121,7 @@ export function useSnakesGame() {
         steps.push(step);
       }
 
-      // Start movement immediately after dice lands
+      // Start movement
       setState((prev) => ({
         ...prev,
         message: `Rolled a ${diceValue}!`,
@@ -128,7 +133,6 @@ export function useSnakesGame() {
         if (currentStep >= steps.length) {
           clearInterval(interval);
 
-          // Show final position briefly, then switch turns
           setTimeout(() => {
             setState((prev) => {
               const landedOnSnake = SNAKES[targetPos] !== undefined;
@@ -193,6 +197,7 @@ export function useSnakesGame() {
         players: prev.players.map((p) => ({ ...p, position: 0 })),
         currentPlayerIndex: firstPlayer,
         diceValue: null,
+        diceRolling: false,
         gameStatus: "rolling",
         winner: null,
         message: `${prev.players[firstPlayer]?.name}'s turn to roll`,
@@ -205,6 +210,7 @@ export function useSnakesGame() {
       players: [],
       currentPlayerIndex: 0,
       diceValue: null,
+      diceRolling: false,
       gameStatus: "waiting_for_players",
       winner: null,
       message: "Add players to start",

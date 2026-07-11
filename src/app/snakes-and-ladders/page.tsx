@@ -124,7 +124,7 @@ export default function SnakesAndLaddersPage() {
               </div>
 
               <div className="py-2">
-                <Dice value={online.state.diceValue} rolling={online.state.gameStatus === "moving"} />
+                <Dice value={online.state.diceValue} rolling={online.state.diceRolling} />
               </div>
 
               <div className="flex gap-3 w-full">
@@ -256,7 +256,7 @@ export default function SnakesAndLaddersPage() {
                 </div>
 
                 <div className="py-2">
-                  <Dice value={local.state.diceValue} rolling={local.state.gameStatus === "moving"} />
+                  <Dice value={local.state.diceValue} rolling={local.state.diceRolling} />
                 </div>
 
                 <div className="flex gap-3 w-full">
