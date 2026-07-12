@@ -326,12 +326,15 @@ export function useOnlineSnakes() {
                   return { ...prev, diceValue: roomState.diceValue };
                 }
 
-                animatingRef.current = true;
+                if (prev.gameStatus === "rolling_dice" || prev.gameStatus === "moving") {
+                  return prev;
+                }
+
                 const startPos = prev.players[roomState.currentPlayerIndex]?.position ?? 0;
                 setTimeout(() => {
                   animateLocally(roomState.diceValue!, roomState.currentPlayerIndex, startPos);
                 }, 0);
-                return { ...prev, message: "Opponent is rolling..." };
+                return { ...prev, gameStatus: "rolling_dice", diceValue: roomState.diceValue, message: "Opponent is rolling..." };
               }
 
               if (room.status === "playing" && prev.gameStatus === "waiting") {
