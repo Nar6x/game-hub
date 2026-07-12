@@ -72,7 +72,7 @@ async function cleanupStaleRooms() {
   await supabase
     .from("rooms")
     .delete()
-    .in("status", ["waiting", "playing"])
+    .in("status", ["waiting", "playing", "left"])
     .lt("created_at", cutoff);
 }
 
@@ -136,22 +136,6 @@ export function useOnlineSnakes() {
       timersRef.current.forEach(clearTimeout);
     };
   }, [cleanupChannel]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const id = roomIdRef.current;
-      if (!id) return;
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rooms?id=eq.${id}`;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-      fetch(url, {
-        method: "DELETE",
-        headers: { apikey: key, Authorization: `Bearer ${key}` },
-        keepalive: true,
-      });
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
 
   const animateLocally = useCallback(
     (diceVal: number, playerIdx: number, startPos: number) => {
@@ -297,17 +281,22 @@ export function useOnlineSnakes() {
               player2_name: string | null;
               status: string;
               winner: string | null;
-              players_info: SnakesPlayer[];
-              max_players: number;
+              players_info?: SnakesPlayer[];
+              max_players?: number;
             };
+
+            if (room.status === "left") {
+              setState((prev) => ({ ...prev, gameStatus: "opponent_left" }));
+              return;
+            }
 
             const roomState = room.state || DEFAULT_ROOM_STATE;
             const incomingVersion = roomState.version ?? 0;
             const isAnimating = animatingRef.current;
 
-            const roomPlayers = roomState.players?.length > 0 ? roomState.players : room.players_info;
+            const roomPlayers = roomState.players?.length > 0 ? roomState.players : room.players_info ?? [];
 
-            if (roomState.gameStatus === "won" && !isAnimating && roomState.winner === username) {
+            if (roomState.gameStatus === "won" && !isAnimating && roomState.winner === username && roomPlayers.length > 0) {
               recordLeaderboard(roomState.winner, roomPlayers);
             }
 
@@ -349,7 +338,7 @@ export function useOnlineSnakes() {
                 const isMyTurn = myIndex !== null && roomState.currentPlayerIndex === myIndex;
                 return {
                   ...prev,
-                  players: roomState.players?.length > 0 ? roomState.players : room.players_info,
+                  players: roomState.players?.length > 0 ? roomState.players : room.players_info ?? [],
                   currentPlayerIndex: roomState.currentPlayerIndex,
                   diceValue: roomState.diceValue,
                   gameStatus: isMyTurn ? "rolling" : "moving",
@@ -562,7 +551,10 @@ export function useOnlineSnakes() {
 
   const leaveRoom = useCallback(async () => {
     if (state.roomId) {
-      await supabase.from("rooms").delete().eq("id", state.roomId);
+      await supabase
+        .from("rooms")
+        .update({ status: "left" })
+        .eq("id", state.roomId);
     }
     cleanupChannel();
     lastVersionRef.current = -1;

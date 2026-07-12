@@ -38,7 +38,7 @@ async function cleanupStaleRooms() {
   await supabase
     .from("rooms")
     .delete()
-    .in("status", ["waiting", "playing"])
+    .in("status", ["waiting", "playing", "left"])
     .lt("created_at", cutoff);
 }
 
@@ -72,23 +72,6 @@ export function useOnlineGame() {
     cleanupStaleRooms();
     return cleanupChannel;
   }, [cleanupChannel]);
-
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const id = roomIdRef.current;
-      if (!id) return;
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rooms?id=eq.${id}`;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-      fetch(url, {
-        method: "DELETE",
-        headers: { apikey: key, Authorization: `Bearer ${key}` },
-        keepalive: true,
-      });
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
 
   const recordLeaderboard = useCallback(
     (winnerName: string | null, player1Name: string, player2Name: string | null) => {
@@ -152,6 +135,15 @@ export function useOnlineGame() {
               match_stats?: MatchStats;
             };
 
+            if (room.status === "left") {
+              setState((prev) => ({
+                ...prev,
+                status: "opponent_left",
+                opponentName: null,
+              }));
+              return;
+            }
+
             const hasWinner = room.winner === "X" || room.winner === "O";
             const boardFull = isBoardFull(room.state.board);
 
@@ -209,7 +201,7 @@ export function useOnlineGame() {
     cleanupChannel();
     await cleanupStaleRooms();
     const inviteCode = generateInviteCode();
-    const mySymbol = Math.random() > 0.5 ? "X" : "O";
+    const mySymbol = "X";
 
     const { data, error } = await supabase
       .from("rooms")
@@ -369,7 +361,10 @@ export function useOnlineGame() {
 
   const leaveRoom = useCallback(async () => {
     if (state.roomId) {
-      await supabase.from("rooms").delete().eq("id", state.roomId);
+      await supabase
+        .from("rooms")
+        .update({ status: "left" })
+        .eq("id", state.roomId);
     }
     cleanupChannel();
     setState({
