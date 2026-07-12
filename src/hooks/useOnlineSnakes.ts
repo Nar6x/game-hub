@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/shared/UserContext";
 import { SnakesPlayer } from "@/lib/types";
+import { updateLeaderboard } from "@/lib/leaderboard";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
 const BOARD_SIZE = 100;
@@ -530,6 +531,15 @@ export function useOnlineSnakes() {
         status: isWinner ? "finished" : "playing",
       })
       .eq("id", state.roomId);
+
+    if (isWinner) {
+      updateLeaderboard(username, "snakes", "win");
+      for (const p of finalPlayers) {
+        if (p.name !== username) {
+          updateLeaderboard(p.name, "snakes", "loss");
+        }
+      }
+    }
   }, [state, username, animateLocally]);
 
   const leaveRoom = useCallback(async () => {

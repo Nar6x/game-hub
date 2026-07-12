@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/shared/UserContext";
+import { PageTransition } from "@/components/shared/PageTransition";
 import { LeaderboardEntry, GameType } from "@/lib/types";
 
 export default function LeaderboardPage() {
@@ -35,6 +36,7 @@ export default function LeaderboardPage() {
   };
 
   return (
+    <PageTransition>
     <main className="flex-1 flex flex-col items-center p-4 sm:p-6">
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center space-y-2">
@@ -68,7 +70,18 @@ export default function LeaderboardPage() {
 
         <div className="bg-gray-900/50 rounded-2xl border border-gray-700/50 overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <div className="p-4 space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3 rounded-lg animate-pulse">
+                  <div className="w-6 h-4 bg-gray-700 rounded" />
+                  <div className="flex-1 h-4 bg-gray-700 rounded" />
+                  <div className="w-8 h-4 bg-gray-700 rounded" />
+                  <div className="w-8 h-4 bg-gray-700 rounded" />
+                  <div className="w-8 h-4 bg-gray-700 rounded" />
+                  <div className="w-12 h-4 bg-gray-700 rounded" />
+                </div>
+              ))}
+            </div>
           ) : entries.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               No leaderboard data yet. Play some games!
@@ -142,5 +155,6 @@ export default function LeaderboardPage() {
         </div>
       </div>
     </main>
+    </PageTransition>
   );
 }

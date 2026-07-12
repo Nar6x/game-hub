@@ -161,6 +161,7 @@ export function useGameState() {
       ...prev,
       board: createEmptyBoard(),
       currentPlayer: "X",
+      gameMode: "pvp",
       gameStatus: "idle",
       winner: null,
       winningLine: null,

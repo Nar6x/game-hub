@@ -2,12 +2,14 @@
 
 import { useUser } from "@/components/shared/UserContext";
 import { GameCard } from "@/components/shared/GameCard";
+import { PageTransition } from "@/components/shared/PageTransition";
 import Link from "next/link";
 
 export default function Home() {
   const { username, isSet } = useUser();
 
   return (
+    <PageTransition>
     <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl space-y-8 sm:space-y-12">
         <div className="text-center space-y-3">
@@ -72,5 +74,6 @@ export default function Home() {
         </div>
       </div>
     </main>
+    </PageTransition>
   );
 }

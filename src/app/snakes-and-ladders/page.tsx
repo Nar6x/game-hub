@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useUser } from "@/components/shared/UserContext";
+import { PageTransition } from "@/components/shared/PageTransition";
 import { useSnakesGame } from "@/hooks/useSnakesGame";
 import { useOnlineSnakes } from "@/hooks/useOnlineSnakes";
 import { SnakesBoard } from "@/components/snakes/SnakesBoard";
@@ -22,6 +23,7 @@ export default function SnakesAndLaddersPage() {
   if (isOnline) {
     if (online.state.gameStatus === "idle" || online.state.gameStatus === "waiting") {
       return (
+        <PageTransition>
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <OnlineSnakesLobby
             username={username}
@@ -35,11 +37,13 @@ export default function SnakesAndLaddersPage() {
             }}
           />
         </main>
+        </PageTransition>
       );
     }
 
     if (online.state.gameStatus === "opponent_left") {
       return (
+        <PageTransition>
         <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
           <div className="w-full max-w-lg flex flex-col items-center gap-6">
             <div className="text-center space-y-3">
@@ -64,10 +68,12 @@ export default function SnakesAndLaddersPage() {
             </button>
           </div>
         </main>
+        </PageTransition>
       );
     }
 
     return (
+      <PageTransition>
       <main className="flex-1 flex flex-col items-center p-4 sm:p-6">
         <div className="w-full max-w-5xl flex flex-col items-center gap-6 sm:gap-8">
           <div className="text-center space-y-2">
@@ -182,11 +188,13 @@ export default function SnakesAndLaddersPage() {
           </div>
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   if (pageMode === "local") {
     return (
+      <PageTransition>
       <main className="flex-1 flex flex-col items-center p-4 sm:p-6">
         <div className="w-full max-w-5xl flex flex-col items-center gap-6 sm:gap-8">
           <div className="text-center space-y-2">
@@ -315,10 +323,12 @@ export default function SnakesAndLaddersPage() {
           )}
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   return (
+    <PageTransition>
     <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-sm flex flex-col items-center gap-8">
         <div className="text-center space-y-2">
@@ -357,5 +367,6 @@ export default function SnakesAndLaddersPage() {
         </div>
       </div>
     </main>
+    </PageTransition>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner } from "@/components/shared/Spinner";
 
 interface OnlineLobbyProps {
   username: string;
@@ -13,6 +14,7 @@ interface OnlineLobbyProps {
 export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: OnlineLobbyProps) {
   const [joinCode, setJoinCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -26,6 +28,11 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
       setError(result.error);
       setIsJoining(false);
     }
+  };
+
+  const handleCreate = () => {
+    setIsCreating(true);
+    onCreateRoom();
   };
 
   const copyCode = async () => {
@@ -67,15 +74,16 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
         </div>
 
         <button
-          onClick={onCreateRoom}
+          onClick={handleCreate}
+          disabled={isCreating}
           className="
             w-full py-3 rounded-xl font-medium text-sm
             bg-gray-800/40 border border-gray-700/50
             text-gray-400 hover:text-white hover:border-gray-600
-            transition-all
+            transition-all disabled:opacity-50
           "
         >
-          Find Random Match
+          {isCreating ? <span className="flex items-center justify-center gap-2"><Spinner /> Finding...</span> : "Find Random Match"}
         </button>
 
         <button
@@ -100,16 +108,17 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
       </div>
 
       <button
-        onClick={onCreateRoom}
+        onClick={handleCreate}
+        disabled={isCreating}
         className="
           w-full py-4 rounded-xl font-medium
           bg-gradient-to-r from-cyan-500 to-rose-500
           hover:from-cyan-400 hover:to-rose-400
           text-white transition-all duration-200
-          active:scale-[0.98]
+          active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100
         "
       >
-        Create Private Room
+        {isCreating ? <span className="flex items-center justify-center gap-2"><Spinner /> Creating...</span> : "Create Private Room"}
       </button>
 
       <div className="w-full flex items-center gap-3">
@@ -146,7 +155,7 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
             transition-all
           "
         >
-          {isJoining ? "..." : "Join"}
+          {isJoining ? <span className="flex items-center gap-1.5"><Spinner className="h-3 w-3" /> Joining</span> : "Join"}
         </button>
       </div>
 
@@ -161,15 +170,16 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
       </div>
 
       <button
-        onClick={onCreateRoom}
+        onClick={handleCreate}
+        disabled={isCreating}
         className="
           w-full py-3 rounded-xl font-medium text-sm
           bg-gray-800/40 border border-gray-700/50
           text-gray-400 hover:text-white hover:border-gray-600
-          transition-all
+          transition-all disabled:opacity-50
         "
       >
-        Find Random Match
+        {isCreating ? <span className="flex items-center justify-center gap-2"><Spinner /> Finding...</span> : "Find Random Match"}
       </button>
 
       <button

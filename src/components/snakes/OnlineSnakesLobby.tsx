@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Spinner } from "@/components/shared/Spinner";
 
 interface OnlineSnakesLobbyProps {
   username: string;
@@ -20,6 +21,7 @@ export function OnlineSnakesLobby({
 }: OnlineSnakesLobbyProps) {
   const [joinCode, setJoinCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [playerCount, setPlayerCount] = useState(2);
@@ -34,6 +36,11 @@ export function OnlineSnakesLobby({
       setError(result.error);
       setIsJoining(false);
     }
+  };
+
+  const handleCreate = () => {
+    setIsCreating(true);
+    onCreateRoom(playerCount);
   };
 
   const copyCode = async () => {
@@ -112,16 +119,17 @@ export function OnlineSnakesLobby({
       </div>
 
       <button
-        onClick={() => onCreateRoom(playerCount)}
+        onClick={handleCreate}
+        disabled={isCreating}
         className="
           w-full py-4 rounded-xl font-medium
           bg-gradient-to-r from-emerald-500 to-cyan-500
           hover:from-emerald-400 hover:to-cyan-400
           text-white transition-all duration-200
-          active:scale-[0.98]
+          active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100
         "
       >
-        Create Room
+        {isCreating ? <span className="flex items-center justify-center gap-2"><Spinner /> Creating...</span> : "Create Room"}
       </button>
 
       <div className="w-full flex items-center gap-3">
@@ -158,7 +166,7 @@ export function OnlineSnakesLobby({
             transition-all
           "
         >
-          {isJoining ? "..." : "Join"}
+          {isJoining ? <span className="flex items-center gap-1.5"><Spinner className="h-3 w-3" /> Joining</span> : "Join"}
         </button>
       </div>
 

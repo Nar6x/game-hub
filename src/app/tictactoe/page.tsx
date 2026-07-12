@@ -1,6 +1,7 @@
 "use client";
 
 import { useUser } from "@/components/shared/UserContext";
+import { PageTransition } from "@/components/shared/PageTransition";
 import { Board } from "@/components/tictactoe/Board";
 import { GameStatus } from "@/components/tictactoe/GameStatus";
 import { GameControls } from "@/components/tictactoe/GameControls";
@@ -27,16 +28,19 @@ export default function TicTacToePage() {
 
   if (local.state.gameStatus === "idle" && !isOnline) {
     return (
+      <PageTransition>
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-lg flex flex-col items-center gap-6 sm:gap-8">
           <ModeSelector onSelect={handleSelect} onOnline={handleOnline} />
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   if (isOnline && online.state.status === "idle") {
     return (
+      <PageTransition>
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-lg flex flex-col items-center gap-6">
           <OnlineLobby
@@ -48,11 +52,13 @@ export default function TicTacToePage() {
           />
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   if (isOnline && online.state.status === "opponent_left") {
     return (
+      <PageTransition>
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-lg flex flex-col items-center gap-6">
           <div className="text-center space-y-3">
@@ -76,12 +82,14 @@ export default function TicTacToePage() {
           </button>
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   if (isOnline && online.state.status !== "idle") {
     const ms = online.state.matchStats;
     return (
+      <PageTransition>
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-lg flex flex-col items-center gap-6 sm:gap-8">
           <div className="text-center">
@@ -171,12 +179,14 @@ export default function TicTacToePage() {
           )}
         </div>
       </main>
+      </PageTransition>
     );
   }
 
   const currentScores = local.state.scores[local.state.gameMode];
 
   return (
+    <PageTransition>
     <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-lg flex flex-col items-center gap-6 sm:gap-8">
         <div className="text-center">
@@ -231,5 +241,6 @@ export default function TicTacToePage() {
         )}
       </div>
     </main>
+    </PageTransition>
   );
 }

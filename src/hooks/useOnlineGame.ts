@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useUser } from "@/components/shared/UserContext";
 import { Board, MatchStats } from "@/lib/types";
 import { checkWinner, isBoardFull, createEmptyBoard } from "@/lib/gameLogic/tictactoe";
+import { updateLeaderboard } from "@/lib/leaderboard";
 import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface OnlineGameState {
@@ -322,8 +323,18 @@ export function useOnlineGame() {
           match_stats: newStats,
         })
         .eq("id", state.roomId);
+
+      if (newStatus === "finished") {
+        if (winner) {
+          updateLeaderboard(username, "tictactoe", "win");
+          if (state.opponentName) updateLeaderboard(state.opponentName, "tictactoe", "loss");
+        } else {
+          updateLeaderboard(username, "tictactoe", "draw");
+          if (state.opponentName) updateLeaderboard(state.opponentName, "tictactoe", "draw");
+        }
+      }
     },
-    [state]
+    [state, username]
   );
 
   const playAgain = useCallback(async () => {
