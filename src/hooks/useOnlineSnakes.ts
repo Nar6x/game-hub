@@ -113,6 +113,7 @@ export function useOnlineSnakes() {
   const roomIdRef = useRef<string | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const animatingRef = useRef(false);
+  const opponentAnimScheduledRef = useRef(false);
   const stateRef = useRef(state);
   const lastVersionRef = useRef(-1);
   const leaderboardRecordedRef = useRef<string | null>(null);
@@ -141,6 +142,7 @@ export function useOnlineSnakes() {
     (diceVal: number, playerIdx: number, startPos: number) => {
       if (animatingRef.current) return;
       animatingRef.current = true;
+      opponentAnimScheduledRef.current = false;
 
       const targetPos = Math.min(startPos + diceVal, BOARD_SIZE);
       const steps = computeSteps(startPos, diceVal);
@@ -326,15 +328,16 @@ export function useOnlineSnakes() {
                   return { ...prev, diceValue: roomState.diceValue };
                 }
 
-                if (prev.gameStatus === "rolling_dice" || prev.gameStatus === "moving") {
+                if (animatingRef.current || opponentAnimScheduledRef.current) {
                   return prev;
                 }
 
+                opponentAnimScheduledRef.current = true;
                 const startPos = prev.players[roomState.currentPlayerIndex]?.position ?? 0;
                 setTimeout(() => {
                   animateLocally(roomState.diceValue!, roomState.currentPlayerIndex, startPos);
                 }, 0);
-                return { ...prev, gameStatus: "rolling_dice", diceValue: roomState.diceValue, message: "Opponent is rolling..." };
+                return { ...prev, diceValue: roomState.diceValue, message: "Opponent is rolling..." };
               }
 
               if (room.status === "playing" && prev.gameStatus === "waiting") {
@@ -353,6 +356,15 @@ export function useOnlineSnakes() {
 
               if (roomState.gameStatus === "rolling_dice") {
                 return prev;
+              }
+
+              if (room.status === "waiting") {
+                return {
+                  ...prev,
+                  players: roomState.players?.length > 0 ? roomState.players : prev.players,
+                  currentPlayerIndex: roomState.currentPlayerIndex,
+                  message: `Waiting for players (${roomState.players?.length ?? 1}/${room.max_players || 2})`,
+                };
               }
 
               const isMyTurn = myIndex !== null && roomState.currentPlayerIndex === myIndex;
