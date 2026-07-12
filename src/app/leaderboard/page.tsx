@@ -17,12 +17,33 @@ export default function LeaderboardPage() {
       setLoading(true);
       const { data } = await supabase
         .from("leaderboard")
-        .select("*")
-        .eq("game_type", activeGame)
-        .order("wins", { ascending: false })
-        .limit(20);
+        .select("player_name, wins, losses, draws")
+        .eq("game_type", activeGame);
 
-      setEntries(data || []);
+      const aggregated = new Map<string, { wins: number; losses: number; draws: number }>();
+      for (const row of data || []) {
+        const existing = aggregated.get(row.player_name) || { wins: 0, losses: 0, draws: 0 };
+        aggregated.set(row.player_name, {
+          wins: existing.wins + row.wins,
+          losses: existing.losses + row.losses,
+          draws: existing.draws + row.draws,
+        });
+      }
+
+      const result: LeaderboardEntry[] = Array.from(aggregated.entries())
+        .map(([player_name, stats]) => ({
+          id: player_name,
+          player_name,
+          game_type: activeGame,
+          wins: stats.wins,
+          losses: stats.losses,
+          draws: stats.draws,
+          created_at: "",
+        }))
+        .sort((a, b) => b.wins - a.wins)
+        .slice(0, 20);
+
+      setEntries(result);
       setLoading(false);
     }
 
