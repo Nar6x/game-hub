@@ -294,7 +294,7 @@ export function useOnlineSnakes() {
 
             const roomState = room.state || DEFAULT_ROOM_STATE;
             const incomingVersion = roomState.version ?? 0;
-            const isAnimating = animatingRef.current;
+            const isAnimating = animatingRef.current || opponentAnimScheduledRef.current;
 
             const roomPlayers = roomState.players?.length > 0 ? roomState.players : room.players_info ?? [];
 
