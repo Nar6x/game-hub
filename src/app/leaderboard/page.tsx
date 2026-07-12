@@ -47,7 +47,7 @@ export default function LeaderboardPage() {
 
   return (
     <PageTransition>
-    <main className="flex-1 flex flex-col items-center p-4 sm:p-6">
+    <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent">
