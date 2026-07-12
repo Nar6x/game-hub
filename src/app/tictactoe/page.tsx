@@ -44,7 +44,6 @@ export default function TicTacToePage() {
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
         <div className="w-full max-w-lg flex flex-col items-center gap-6">
           <OnlineLobby
-            username={username}
             inviteCode={online.state.inviteCode}
             onCreateRoom={online.findGame}
             onJoinByCode={online.joinRoomByCode}

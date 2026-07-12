@@ -83,13 +83,11 @@ export function useOnlineGame() {
 
       if (player1Name) {
         const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player1Name ? "win" : "loss";
-        console.log("Recording leaderboard for", player1Name, ":", result);
         updateLeaderboard(player1Name, "tictactoe", result);
       }
 
       if (player2Name) {
         const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player2Name ? "win" : "loss";
-        console.log("Recording leaderboard for", player2Name, ":", result);
         updateLeaderboard(player2Name, "tictactoe", result);
       }
     },
@@ -146,6 +144,18 @@ export function useOnlineGame() {
 
             const hasWinner = room.winner === "X" || room.winner === "O";
             const boardFull = isBoardFull(room.state.board);
+            const { winningLine } = hasWinner ? checkWinner(room.state.board) : { winningLine: null };
+
+            if (room.status === "finished") {
+              const winnerName = room.winner === "X" ? room.player1_name
+                : room.winner === "O" ? room.player2_name
+                  : null;
+              const isDraw = room.winner === null;
+              const iAmWinner = winnerName === username;
+              if (iAmWinner || (isDraw && room.player1_name === username)) {
+                recordLeaderboard(winnerName, room.player1_name, room.player2_name);
+              }
+            }
 
             setState((prev) => {
               let newStatus: OnlineGameState["status"] = prev.status;
@@ -160,21 +170,6 @@ export function useOnlineGame() {
                 }
               } else if (room.status === "playing") {
                 newStatus = "playing";
-              }
-
-              const { winningLine } = hasWinner
-                ? checkWinner(room.state.board)
-                : { winningLine: null };
-
-              if (room.status === "finished" && prev.status !== "won" && prev.status !== "draw") {
-                const winnerName = room.winner === "X" ? room.player1_name
-                  : room.winner === "O" ? room.player2_name
-                    : null;
-                const isDraw = room.winner === null;
-                const iAmWinner = winnerName === username;
-                if (iAmWinner || (isDraw && room.player1_name === username)) {
-                  recordLeaderboard(winnerName, room.player1_name, room.player2_name);
-                }
               }
 
               return {

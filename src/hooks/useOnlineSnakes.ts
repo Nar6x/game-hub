@@ -243,7 +243,6 @@ export function useOnlineSnakes() {
           : p.name === winnerName
             ? "win"
             : "loss";
-        console.log("Recording leaderboard for", p.name, ":", result);
         updateLeaderboard(p.name, "snakes", result);
       }
     },
@@ -327,6 +326,7 @@ export function useOnlineSnakes() {
                   return { ...prev, diceValue: roomState.diceValue };
                 }
 
+                animatingRef.current = true;
                 const startPos = prev.players[roomState.currentPlayerIndex]?.position ?? 0;
                 setTimeout(() => {
                   animateLocally(roomState.diceValue!, roomState.currentPlayerIndex, startPos);
