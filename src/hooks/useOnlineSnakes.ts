@@ -232,7 +232,7 @@ export function useOnlineSnakes() {
   );
 
   const recordLeaderboard = useCallback(
-    (winnerName: string | null, players: SnakesPlayer[]) => {
+    async (winnerName: string | null, players: SnakesPlayer[]) => {
       if (leaderboardRecordedRef.current === winnerName) return;
       leaderboardRecordedRef.current = winnerName;
 
@@ -243,7 +243,7 @@ export function useOnlineSnakes() {
           : p.name === winnerName
             ? "win"
             : "loss";
-        updateLeaderboard(p.name, "snakes", result);
+        await updateLeaderboard(p.name, "snakes", result);
       }
     },
     []

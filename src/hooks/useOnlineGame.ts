@@ -74,7 +74,7 @@ export function useOnlineGame() {
   }, [cleanupChannel]);
 
   const recordLeaderboard = useCallback(
-    (winnerName: string | null, player1Name: string, player2Name: string | null) => {
+    async (winnerName: string | null, player1Name: string, player2Name: string | null) => {
       const dedupKey = `${winnerName ?? "draw"}-${player1Name}-${player2Name ?? ""}`;
       if (leaderboardRecordedRef.current === dedupKey) return;
       leaderboardRecordedRef.current = dedupKey;
@@ -83,12 +83,12 @@ export function useOnlineGame() {
 
       if (player1Name) {
         const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player1Name ? "win" : "loss";
-        updateLeaderboard(player1Name, "tictactoe", result);
+        await updateLeaderboard(player1Name, "tictactoe", result);
       }
 
       if (player2Name) {
         const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player2Name ? "win" : "loss";
-        updateLeaderboard(player2Name, "tictactoe", result);
+        await updateLeaderboard(player2Name, "tictactoe", result);
       }
     },
     []
