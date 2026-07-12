@@ -80,19 +80,16 @@ export function useOnlineGame() {
       leaderboardRecordedRef.current = dedupKey;
 
       const isDraw = winnerName === null;
-      const writes: Promise<void>[] = [];
 
       if (player1Name) {
         const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player1Name ? "win" : "loss";
-        writes.push(updateLeaderboard(player1Name, "tictactoe", result));
+        await updateLeaderboard(player1Name, "tictactoe", result);
       }
 
       if (player2Name) {
         const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player2Name ? "win" : "loss";
-        writes.push(updateLeaderboard(player2Name, "tictactoe", result));
+        await updateLeaderboard(player2Name, "tictactoe", result);
       }
-
-      await Promise.all(writes);
     },
     []
   );
@@ -197,6 +194,7 @@ export function useOnlineGame() {
 
   const createRoom = useCallback(async () => {
     cleanupChannel();
+    await cleanupStaleRooms();
     const inviteCode = generateInviteCode();
     const mySymbol = "X";
 
@@ -298,7 +296,7 @@ export function useOnlineGame() {
   }, [createRoom, joinRoomByCode, username]);
 
   const makeMove = useCallback(
-    (index: number) => {
+    async (index: number) => {
       if (!state.roomId || !state.mySymbol || state.status !== "playing") return;
       if (state.board[index] !== null) return;
       if (state.currentPlayer !== state.mySymbol) return;
@@ -325,19 +323,7 @@ export function useOnlineGame() {
         newStats.draws += 1;
       }
 
-      const { winningLine } = winner ? checkWinner(newBoard) : { winningLine: null };
-
-      setState((prev) => ({
-        ...prev,
-        board: newBoard,
-        currentPlayer: state.mySymbol === "X" ? "O" : "X",
-        status: newStatus === "finished" ? (winner ? "won" : "draw") : "playing",
-        winner: winner ? state.mySymbol : null,
-        winningLine,
-        matchStats: newStats,
-      }));
-
-      supabase
+      await supabase
         .from("rooms")
         .update({
           state: {
@@ -350,7 +336,7 @@ export function useOnlineGame() {
         })
         .eq("id", state.roomId);
     },
-    [state]
+    [state, username]
   );
 
   const playAgain = useCallback(async () => {
@@ -368,9 +354,9 @@ export function useOnlineGame() {
       .eq("id", state.roomId);
   }, [state.roomId, state.mySymbol, state.winner]);
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback(async () => {
     if (state.roomId) {
-      supabase
+      await supabase
         .from("rooms")
         .update({ status: "left" })
         .eq("id", state.roomId);
