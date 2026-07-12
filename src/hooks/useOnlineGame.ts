@@ -91,30 +91,26 @@ export function useOnlineGame() {
   }, []);
 
   const recordLeaderboard = useCallback(
-    (roomWinner: string | null, player1Name: string, player2Name: string | null) => {
-      if (leaderboardRecordedRef.current === roomWinner) return;
-      leaderboardRecordedRef.current = roomWinner;
+    (winnerName: string | null, player1Name: string, player2Name: string | null) => {
+      const dedupKey = `${winnerName ?? "draw"}-${player1Name}-${player2Name ?? ""}`;
+      if (leaderboardRecordedRef.current === dedupKey) return;
+      leaderboardRecordedRef.current = dedupKey;
 
-      const isDraw = roomWinner === null;
-      const myResult: "win" | "loss" | "draw" = isDraw
-        ? "draw"
-        : roomWinner === username
-          ? "win"
-          : "loss";
+      const isDraw = winnerName === null;
 
-      console.log("Recording leaderboard for", username, ":", myResult);
-      updateLeaderboard(username, "tictactoe", myResult);
+      if (player1Name) {
+        const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player1Name ? "win" : "loss";
+        console.log("Recording leaderboard for", player1Name, ":", result);
+        updateLeaderboard(player1Name, "tictactoe", result);
+      }
 
-      if (player2Name && !isDraw) {
-        const opponentResult: "win" | "loss" = myResult === "win" ? "loss" : "win";
-        console.log("Recording leaderboard for", player2Name, ":", opponentResult);
-        updateLeaderboard(player2Name, "tictactoe", opponentResult);
-      } else if (isDraw && player2Name) {
-        console.log("Recording leaderboard for", player2Name, ": draw");
-        updateLeaderboard(player2Name, "tictactoe", "draw");
+      if (player2Name) {
+        const result: "win" | "loss" | "draw" = isDraw ? "draw" : winnerName === player2Name ? "win" : "loss";
+        console.log("Recording leaderboard for", player2Name, ":", result);
+        updateLeaderboard(player2Name, "tictactoe", result);
       }
     },
-    [username]
+    []
   );
 
   const subscribeToRoom = useCallback(
@@ -179,7 +175,14 @@ export function useOnlineGame() {
                 : { winningLine: null };
 
               if (room.status === "finished" && prev.status !== "won" && prev.status !== "draw") {
-                recordLeaderboard(room.winner, room.player1_name, room.player2_name);
+                const winnerName = room.winner === "X" ? room.player1_name
+                  : room.winner === "O" ? room.player2_name
+                    : null;
+                const isDraw = room.winner === null;
+                const iAmWinner = winnerName === username;
+                if (iAmWinner || (isDraw && room.player1_name === username)) {
+                  recordLeaderboard(winnerName, room.player1_name, room.player2_name);
+                }
               }
 
               return {
