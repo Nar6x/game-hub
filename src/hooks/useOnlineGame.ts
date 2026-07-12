@@ -42,49 +42,6 @@ async function cleanupStaleRooms() {
     .lt("created_at", cutoff);
 }
 
-function applyRoomUpdate(
-  prev: OnlineGameState,
-  room: {
-    state: { board: Board; current_player: "X" | "O" };
-    player1_name: string;
-    player2_name: string | null;
-    status: string;
-    winner: string | null;
-    match_stats?: MatchStats;
-  }
-): OnlineGameState {
-  const board = room.state.board;
-  const hasWinner = room.winner === "X" || room.winner === "O";
-  const boardFull = isBoardFull(board);
-
-  let newStatus: OnlineGameState["status"] = prev.status;
-
-  if (room.status === "playing" && prev.status === "waiting") {
-    newStatus = "playing";
-  } else if (room.status === "finished") {
-    if (hasWinner) {
-      newStatus = "won";
-    } else if (boardFull) {
-      newStatus = "draw";
-    }
-  } else if (room.status === "playing") {
-    newStatus = "playing";
-  }
-
-  const { winningLine } = hasWinner ? checkWinner(board) : { winningLine: null };
-
-  return {
-    ...prev,
-    board,
-    currentPlayer: room.state.current_player,
-    status: newStatus,
-    winner: hasWinner ? (room.winner as "X" | "O") : null,
-    winningLine,
-    opponentName: prev.mySymbol === "X" ? room.player2_name : room.player1_name,
-    matchStats: room.match_stats || prev.matchStats,
-  };
-}
-
 export function useOnlineGame() {
   const { username } = useUser();
   const [state, setState] = useState<OnlineGameState>({
@@ -101,6 +58,7 @@ export function useOnlineGame() {
   });
   const channelRef = useRef<RealtimeChannel | null>(null);
   const roomIdRef = useRef<string | null>(null);
+  const leaderboardRecordedRef = useRef<string | null>(null);
 
   const cleanupChannel = useCallback(() => {
     if (channelRef.current) {
@@ -132,6 +90,33 @@ export function useOnlineGame() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
 
+  const recordLeaderboard = useCallback(
+    (roomWinner: string | null, player1Name: string, player2Name: string | null) => {
+      if (leaderboardRecordedRef.current === roomWinner) return;
+      leaderboardRecordedRef.current = roomWinner;
+
+      const isDraw = roomWinner === null;
+      const myResult: "win" | "loss" | "draw" = isDraw
+        ? "draw"
+        : roomWinner === username
+          ? "win"
+          : "loss";
+
+      console.log("Recording leaderboard for", username, ":", myResult);
+      updateLeaderboard(username, "tictactoe", myResult);
+
+      if (player2Name && !isDraw) {
+        const opponentResult: "win" | "loss" = myResult === "win" ? "loss" : "win";
+        console.log("Recording leaderboard for", player2Name, ":", opponentResult);
+        updateLeaderboard(player2Name, "tictactoe", opponentResult);
+      } else if (isDraw && player2Name) {
+        console.log("Recording leaderboard for", player2Name, ": draw");
+        updateLeaderboard(player2Name, "tictactoe", "draw");
+      }
+    },
+    [username]
+  );
+
   const subscribeToRoom = useCallback(
     (roomId: string) => {
       if (channelRef.current) {
@@ -140,6 +125,7 @@ export function useOnlineGame() {
       }
 
       roomIdRef.current = roomId;
+      leaderboardRecordedRef.current = null;
 
       const channel = supabase
         .channel(`room:${roomId}`)
@@ -170,14 +156,50 @@ export function useOnlineGame() {
               match_stats?: MatchStats;
             };
 
-            setState((prev) => applyRoomUpdate(prev, room));
+            const hasWinner = room.winner === "X" || room.winner === "O";
+            const boardFull = isBoardFull(room.state.board);
+
+            setState((prev) => {
+              let newStatus: OnlineGameState["status"] = prev.status;
+
+              if (room.status === "playing" && prev.status === "waiting") {
+                newStatus = "playing";
+              } else if (room.status === "finished") {
+                if (hasWinner) {
+                  newStatus = "won";
+                } else if (boardFull) {
+                  newStatus = "draw";
+                }
+              } else if (room.status === "playing") {
+                newStatus = "playing";
+              }
+
+              const { winningLine } = hasWinner
+                ? checkWinner(room.state.board)
+                : { winningLine: null };
+
+              if (room.status === "finished" && prev.status !== "won" && prev.status !== "draw") {
+                recordLeaderboard(room.winner, room.player1_name, room.player2_name);
+              }
+
+              return {
+                ...prev,
+                board: room.state.board,
+                currentPlayer: room.state.current_player,
+                status: newStatus,
+                winner: hasWinner ? (room.winner as "X" | "O") : null,
+                winningLine,
+                opponentName: prev.mySymbol === "X" ? room.player2_name : room.player1_name,
+                matchStats: room.match_stats || prev.matchStats,
+              };
+            });
           }
         )
         .subscribe();
 
       channelRef.current = channel;
     },
-    []
+    [recordLeaderboard]
   );
 
   const createRoom = useCallback(async () => {
@@ -323,16 +345,6 @@ export function useOnlineGame() {
           match_stats: newStats,
         })
         .eq("id", state.roomId);
-
-      if (newStatus === "finished") {
-        if (winner) {
-          await updateLeaderboard(username, "tictactoe", "win");
-          if (state.opponentName) await updateLeaderboard(state.opponentName, "tictactoe", "loss");
-        } else {
-          await updateLeaderboard(username, "tictactoe", "draw");
-          if (state.opponentName) await updateLeaderboard(state.opponentName, "tictactoe", "draw");
-        }
-      }
     },
     [state, username]
   );

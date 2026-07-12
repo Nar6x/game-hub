@@ -115,6 +115,7 @@ export function useOnlineSnakes() {
   const animatingRef = useRef(false);
   const stateRef = useRef(state);
   const lastVersionRef = useRef(-1);
+  const leaderboardRecordedRef = useRef<string | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
@@ -246,6 +247,25 @@ export function useOnlineSnakes() {
     []
   );
 
+  const recordLeaderboard = useCallback(
+    (winnerName: string | null, players: SnakesPlayer[]) => {
+      if (leaderboardRecordedRef.current === winnerName) return;
+      leaderboardRecordedRef.current = winnerName;
+
+      const isDraw = winnerName === null;
+      for (const p of players) {
+        const result: "win" | "loss" | "draw" = isDraw
+          ? "draw"
+          : p.name === winnerName
+            ? "win"
+            : "loss";
+        console.log("Recording leaderboard for", p.name, ":", result);
+        updateLeaderboard(p.name, "snakes", result);
+      }
+    },
+    []
+  );
+
   const subscribeToRoom = useCallback(
     (roomId: string) => {
       if (channelRef.current) {
@@ -253,6 +273,7 @@ export function useOnlineSnakes() {
         channelRef.current = null;
       }
       roomIdRef.current = roomId;
+      leaderboardRecordedRef.current = null;
 
       const channel = supabase
         .channel(`snakes:${roomId}`)
@@ -283,6 +304,12 @@ export function useOnlineSnakes() {
             const roomState = room.state || DEFAULT_ROOM_STATE;
             const incomingVersion = roomState.version ?? 0;
             const isAnimating = animatingRef.current;
+
+            const roomPlayers = roomState.players?.length > 0 ? roomState.players : room.players_info;
+
+            if (roomState.gameStatus === "won" && !isAnimating && roomState.winner === username) {
+              recordLeaderboard(roomState.winner, roomPlayers);
+            }
 
             setState((prev) => {
               if (isAnimating) {
@@ -358,7 +385,7 @@ export function useOnlineSnakes() {
 
       channelRef.current = channel;
     },
-    [animateLocally]
+    [animateLocally, recordLeaderboard, username]
   );
 
   const createRoom = useCallback(
@@ -531,15 +558,6 @@ export function useOnlineSnakes() {
         status: isWinner ? "finished" : "playing",
       })
       .eq("id", state.roomId);
-
-    if (isWinner) {
-      await updateLeaderboard(username, "snakes", "win");
-      for (const p of finalPlayers) {
-        if (p.name !== username) {
-          await updateLeaderboard(p.name, "snakes", "loss");
-        }
-      }
-    }
   }, [state, username, animateLocally]);
 
   const leaveRoom = useCallback(async () => {
