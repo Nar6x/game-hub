@@ -239,14 +239,15 @@ export function useOnlineSnakes() {
       leaderboardRecordedRef.current = winnerName;
 
       const isDraw = winnerName === null;
-      for (const p of players) {
+      const writes = players.map((p) => {
         const result: "win" | "loss" | "draw" = isDraw
           ? "draw"
           : p.name === winnerName
             ? "win"
             : "loss";
-        await updateLeaderboard(p.name, "snakes", result);
-      }
+        return updateLeaderboard(p.name, "snakes", result);
+      });
+      await Promise.all(writes);
     },
     []
   );
@@ -395,7 +396,6 @@ export function useOnlineSnakes() {
   const createRoom = useCallback(
     async (playerCount: number) => {
       cleanupChannel();
-      await cleanupStaleRooms();
       const inviteCode = generateInviteCode();
       const myPlayer: SnakesPlayer = { name: username, position: 0, color: PLAYER_COLORS[0] };
 
@@ -521,7 +521,7 @@ export function useOnlineSnakes() {
 
     animateLocally(diceValue, myIndex, startPos);
 
-    await supabase
+    supabase
       .from("rooms")
       .update({
         state: {
@@ -564,9 +564,9 @@ export function useOnlineSnakes() {
       .eq("id", state.roomId);
   }, [state, username, animateLocally]);
 
-  const leaveRoom = useCallback(async () => {
+  const leaveRoom = useCallback(() => {
     if (state.roomId) {
-      await supabase
+      supabase
         .from("rooms")
         .update({ status: "left" })
         .eq("id", state.roomId);
