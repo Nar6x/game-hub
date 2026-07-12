@@ -533,10 +533,10 @@ export function useOnlineSnakes() {
       .eq("id", state.roomId);
 
     if (isWinner) {
-      updateLeaderboard(username, "snakes", "win");
+      await updateLeaderboard(username, "snakes", "win");
       for (const p of finalPlayers) {
         if (p.name !== username) {
-          updateLeaderboard(p.name, "snakes", "loss");
+          await updateLeaderboard(p.name, "snakes", "loss");
         }
       }
     }

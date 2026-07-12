@@ -326,11 +326,11 @@ export function useOnlineGame() {
 
       if (newStatus === "finished") {
         if (winner) {
-          updateLeaderboard(username, "tictactoe", "win");
-          if (state.opponentName) updateLeaderboard(state.opponentName, "tictactoe", "loss");
+          await updateLeaderboard(username, "tictactoe", "win");
+          if (state.opponentName) await updateLeaderboard(state.opponentName, "tictactoe", "loss");
         } else {
-          updateLeaderboard(username, "tictactoe", "draw");
-          if (state.opponentName) updateLeaderboard(state.opponentName, "tictactoe", "draw");
+          await updateLeaderboard(username, "tictactoe", "draw");
+          if (state.opponentName) await updateLeaderboard(state.opponentName, "tictactoe", "draw");
         }
       }
     },

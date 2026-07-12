@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Spinner } from "@/components/shared/Spinner";
+import { updateLeaderboard } from "@/lib/leaderboard";
 
 interface OnlineLobbyProps {
   username: string;
@@ -11,12 +12,13 @@ interface OnlineLobbyProps {
   onBack: () => void;
 }
 
-export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: OnlineLobbyProps) {
+export function OnlineLobby({ username, inviteCode, onCreateRoom, onJoinByCode, onBack }: OnlineLobbyProps) {
   const [joinCode, setJoinCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   const handleJoin = async () => {
     if (!joinCode.trim()) return;
@@ -40,6 +42,16 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
     await navigator.clipboard.writeText(inviteCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleTestLeaderboard = async () => {
+    setTestResult(null);
+    try {
+      await updateLeaderboard(username || "test_user", "tictactoe", "win");
+      setTestResult("OK - leaderboard updated");
+    } catch (e) {
+      setTestResult(`ERROR - ${e}`);
+    }
   };
 
   if (inviteCode) {
@@ -188,6 +200,20 @@ export function OnlineLobby({ inviteCode, onCreateRoom, onJoinByCode, onBack }: 
       >
         Back to Menu
       </button>
+
+      <div className="w-full mt-4 p-3 rounded-xl bg-gray-800/30 border border-gray-700/30">
+        <button
+          onClick={handleTestLeaderboard}
+          className="w-full py-2 rounded-lg text-xs font-medium bg-gray-700/50 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-all"
+        >
+          Test Leaderboard Write
+        </button>
+        {testResult && (
+          <p className={`mt-2 text-xs text-center ${testResult.startsWith("OK") ? "text-emerald-400" : "text-rose-400"}`}>
+            {testResult}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

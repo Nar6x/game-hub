@@ -8,15 +8,15 @@ export async function updateLeaderboard(
 ) {
   if (!playerName) return;
 
-  const { error } = await supabase.from("leaderboard").insert({
-    player_name: playerName,
-    game_type: gameType,
-    wins: result === "win" ? 1 : 0,
-    losses: result === "loss" ? 1 : 0,
-    draws: result === "draw" ? 1 : 0,
+  const { error } = await supabase.rpc("update_leaderboard", {
+    p_player_name: playerName,
+    p_game_type: gameType,
+    p_wins: result === "win" ? 1 : 0,
+    p_losses: result === "loss" ? 1 : 0,
+    p_draws: result === "draw" ? 1 : 0,
   });
 
   if (error) {
-    console.error("Failed to update leaderboard:", error.message);
+    console.error("Failed to update leaderboard:", error.message, error);
   }
 }
